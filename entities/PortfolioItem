@@ -1,0 +1,41 @@
+{
+  "name": "PortfolioItem",
+  "type": "object",
+  "properties": {
+    "provider_id": {
+      "type": "string",
+      "description": "Reference to provider profile ID"
+    },
+    "title": {
+      "type": "string",
+      "description": "Portfolio item title"
+    },
+    "description": {
+      "type": "string",
+      "description": "Portfolio item description"
+    },
+    "media_type": {
+      "type": "string",
+      "enum": [
+        "image",
+        "video",
+        "document"
+      ],
+      "description": "Type of media"
+    },
+    "media_url": {
+      "type": "string",
+      "description": "URL to media file"
+    },
+    "thumbnail_url": {
+      "type": "string",
+      "description": "URL to thumbnail image"
+    }
+  },
+  "required": [
+    "provider_id",
+    "title",
+    "media_type",
+    "media_url"
+  ]
+}

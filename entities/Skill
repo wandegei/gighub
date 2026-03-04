@@ -1,0 +1,35 @@
+{
+  "name": "Skill",
+  "type": "object",
+  "properties": {
+    "provider_id": {
+      "type": "string",
+      "description": "Provider profile ID"
+    },
+    "provider_email": {
+      "type": "string"
+    },
+    "skill_name": {
+      "type": "string",
+      "description": "Name of the skill"
+    },
+    "proficiency": {
+      "type": "string",
+      "enum": [
+        "beginner",
+        "intermediate",
+        "advanced",
+        "expert"
+      ],
+      "default": "intermediate"
+    },
+    "years_experience": {
+      "type": "number",
+      "description": "Years of experience with this skill"
+    }
+  },
+  "required": [
+    "provider_id",
+    "skill_name"
+  ]
+}

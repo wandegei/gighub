@@ -1,0 +1,52 @@
+{
+  "name": "Order",
+  "type": "object",
+  "properties": {
+    "job_id": {
+      "type": "string",
+      "description": "Reference to parent job ID"
+    },
+    "requester_id": {
+      "type": "string",
+      "description": "Provider placing the order"
+    },
+    "requester_email": {
+      "type": "string",
+      "description": "Requester's email"
+    },
+    "supplier_id": {
+      "type": "string",
+      "description": "Provider fulfilling the order"
+    },
+    "supplier_email": {
+      "type": "string",
+      "description": "Supplier's email"
+    },
+    "amount": {
+      "type": "number",
+      "description": "Order amount in UGX"
+    },
+    "description": {
+      "type": "string",
+      "description": "Order description"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending_approval",
+        "approved",
+        "rejected",
+        "completed"
+      ],
+      "default": "pending_approval",
+      "description": "Order status"
+    }
+  },
+  "required": [
+    "job_id",
+    "requester_id",
+    "supplier_id",
+    "amount",
+    "description"
+  ]
+}

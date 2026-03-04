@@ -1,0 +1,33 @@
+{
+  "name": "Wallet",
+  "type": "object",
+  "properties": {
+    "user_id": {
+      "type": "string",
+      "description": "Reference to profile ID"
+    },
+    "user_email": {
+      "type": "string",
+      "description": "User's email for easy lookup"
+    },
+    "balance": {
+      "type": "number",
+      "default": 0,
+      "description": "Total deposited balance"
+    },
+    "available_balance": {
+      "type": "number",
+      "default": 0,
+      "description": "Withdrawable balance after job completion"
+    },
+    "locked_balance": {
+      "type": "number",
+      "default": 0,
+      "description": "Escrow funds in progress"
+    }
+  },
+  "required": [
+    "user_id",
+    "user_email"
+  ]
+}

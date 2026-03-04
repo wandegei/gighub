@@ -1,0 +1,26 @@
+{
+  "name": "Category",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Category name"
+    },
+    "slug": {
+      "type": "string",
+      "description": "URL-friendly slug"
+    },
+    "image_url": {
+      "type": "string",
+      "description": "Category image URL"
+    },
+    "description": {
+      "type": "string",
+      "description": "Category description"
+    }
+  },
+  "required": [
+    "name",
+    "slug"
+  ]
+}

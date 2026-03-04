@@ -1,0 +1,47 @@
+{
+  "name": "Verification",
+  "type": "object",
+  "properties": {
+    "provider_id": {
+      "type": "string",
+      "description": "Provider profile ID"
+    },
+    "provider_email": {
+      "type": "string"
+    },
+    "verification_type": {
+      "type": "string",
+      "enum": [
+        "identity",
+        "skills",
+        "business",
+        "background"
+      ],
+      "description": "Type of verification"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "verified",
+        "rejected"
+      ],
+      "default": "pending"
+    },
+    "verified_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "document_url": {
+      "type": "string",
+      "description": "Uploaded verification document"
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "provider_id",
+    "verification_type"
+  ]
+}

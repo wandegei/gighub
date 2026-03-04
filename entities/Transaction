@@ -1,0 +1,60 @@
+{
+  "name": "Transaction",
+  "type": "object",
+  "properties": {
+    "job_id": {
+      "type": "string",
+      "description": "Reference to job ID"
+    },
+    "from_wallet_id": {
+      "type": "string",
+      "description": "Source wallet ID"
+    },
+    "to_wallet_id": {
+      "type": "string",
+      "description": "Destination wallet ID"
+    },
+    "from_email": {
+      "type": "string",
+      "description": "Source user email"
+    },
+    "to_email": {
+      "type": "string",
+      "description": "Destination user email"
+    },
+    "amount": {
+      "type": "number",
+      "description": "Transaction amount"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "deposit",
+        "escrow_lock",
+        "internal_transfer",
+        "release",
+        "withdrawal"
+      ],
+      "description": "Transaction type"
+    },
+    "description": {
+      "type": "string",
+      "description": "Transaction description"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "approved",
+        "completed",
+        "rejected"
+      ],
+      "default": "pending",
+      "description": "Transaction status"
+    }
+  },
+  "required": [
+    "amount",
+    "type"
+  ]
+}

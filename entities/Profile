@@ -1,0 +1,43 @@
+{
+  "name": "Profile",
+  "type": "object",
+  "properties": {
+    "full_name": {
+      "type": "string",
+      "description": "User's full name"
+    },
+    "phone_number": {
+      "type": "string",
+      "description": "Contact phone number"
+    },
+    "location": {
+      "type": "string",
+      "description": "User's location/city"
+    },
+    "bio": {
+      "type": "string",
+      "description": "User biography/description"
+    },
+    "profile_image_url": {
+      "type": "string",
+      "description": "URL to profile image"
+    },
+    "user_type": {
+      "type": "string",
+      "enum": [
+        "provider",
+        "client"
+      ],
+      "description": "Type of user account"
+    },
+    "user_email": {
+      "type": "string",
+      "description": "User's email for linking"
+    }
+  },
+  "required": [
+    "full_name",
+    "user_type",
+    "user_email"
+  ]
+}

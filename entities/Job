@@ -1,0 +1,70 @@
+{
+  "name": "Job",
+  "type": "object",
+  "properties": {
+    "client_id": {
+      "type": "string",
+      "description": "Reference to client profile ID"
+    },
+    "client_email": {
+      "type": "string",
+      "description": "Client's email"
+    },
+    "provider_id": {
+      "type": "string",
+      "description": "Reference to provider profile ID"
+    },
+    "provider_email": {
+      "type": "string",
+      "description": "Provider's email"
+    },
+    "title": {
+      "type": "string",
+      "description": "Job title"
+    },
+    "description": {
+      "type": "string",
+      "description": "Job description"
+    },
+    "agreed_amount": {
+      "type": "number",
+      "description": "Agreed payment amount in UGX"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "funded",
+        "in_progress",
+        "work_submitted",
+        "revision_requested",
+        "completed",
+        "cancelled"
+      ],
+      "default": "pending",
+      "description": "Current job status"
+    },
+    "work_files": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Files submitted by provider"
+    },
+    "revision_notes": {
+      "type": "string",
+      "description": "Client feedback for revisions"
+    },
+    "completed_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When job was completed"
+    }
+  },
+  "required": [
+    "client_id",
+    "provider_id",
+    "title",
+    "agreed_amount"
+  ]
+}

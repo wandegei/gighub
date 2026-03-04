@@ -1,0 +1,43 @@
+{
+  "name": "Review",
+  "type": "object",
+  "properties": {
+    "job_id": {
+      "type": "string",
+      "description": "Reference to the completed job"
+    },
+    "provider_id": {
+      "type": "string",
+      "description": "Provider being reviewed"
+    },
+    "provider_email": {
+      "type": "string"
+    },
+    "client_id": {
+      "type": "string",
+      "description": "Client who wrote the review"
+    },
+    "client_email": {
+      "type": "string"
+    },
+    "client_name": {
+      "type": "string"
+    },
+    "rating": {
+      "type": "number",
+      "minimum": 1,
+      "maximum": 5,
+      "description": "Rating from 1 to 5 stars"
+    },
+    "comment": {
+      "type": "string",
+      "description": "Review text"
+    }
+  },
+  "required": [
+    "job_id",
+    "provider_id",
+    "client_id",
+    "rating"
+  ]
+}

@@ -1,0 +1,40 @@
+{
+  "name": "JobApplication",
+  "type": "object",
+  "properties": {
+    "job_posting_id": {
+      "type": "string"
+    },
+    "provider_id": {
+      "type": "string"
+    },
+    "provider_email": {
+      "type": "string"
+    },
+    "provider_name": {
+      "type": "string"
+    },
+    "proposal": {
+      "type": "string",
+      "description": "Provider's proposal/pitch"
+    },
+    "bid_amount": {
+      "type": "number"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "accepted",
+        "rejected"
+      ],
+      "default": "pending"
+    }
+  },
+  "required": [
+    "job_posting_id",
+    "provider_id",
+    "proposal",
+    "bid_amount"
+  ]
+}

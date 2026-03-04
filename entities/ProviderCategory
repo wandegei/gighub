@@ -1,0 +1,22 @@
+{
+  "name": "ProviderCategory",
+  "type": "object",
+  "properties": {
+    "provider_id": {
+      "type": "string",
+      "description": "Reference to provider profile ID"
+    },
+    "category_id": {
+      "type": "string",
+      "description": "Reference to category ID"
+    },
+    "provider_email": {
+      "type": "string",
+      "description": "Provider's email for easy lookup"
+    }
+  },
+  "required": [
+    "provider_id",
+    "category_id"
+  ]
+}

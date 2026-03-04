@@ -1,0 +1,39 @@
+{
+  "name": "Withdrawal",
+  "type": "object",
+  "properties": {
+    "wallet_id": {
+      "type": "string",
+      "description": "Reference to wallet ID"
+    },
+    "user_email": {
+      "type": "string",
+      "description": "User's email"
+    },
+    "amount": {
+      "type": "number",
+      "description": "Withdrawal amount"
+    },
+    "phone_number": {
+      "type": "string",
+      "description": "Mobile money phone number"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "processing",
+        "completed",
+        "failed"
+      ],
+      "default": "pending",
+      "description": "Withdrawal status"
+    }
+  },
+  "required": [
+    "wallet_id",
+    "user_email",
+    "amount",
+    "phone_number"
+  ]
+}

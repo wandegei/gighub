@@ -1,0 +1,121 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --primary-orange: #FF6B3D;
+  --primary-orange-hover: #FF5722;
+  --soft-peach: #FFF0EB;
+  --accent-green: #00D97E;
+  --accent-green-hover: #00C26F;
+  --background: #0A0E1A;
+  --card-bg: #151922;
+  --card-border: #1E2430;
+  --text-primary: #F8F9FA;
+  --text-secondary: #E4E7EB;
+  --text-muted: #9BA3AF;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  
+  body {
+    @apply bg-[#0A0E1A] antialiased;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    color: #FFFFFF;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply text-white;
+  }
+  
+  p {
+    @apply text-white;
+  }
+  
+  label {
+    @apply text-white;
+  }
+  
+  span {
+    color: inherit;
+  }
+}
+
+@layer components {
+  .card-dark {
+    @apply bg-[#151922] border border-[#1E2430] rounded-2xl shadow-lg;
+  }
+  
+  .btn-primary {
+    @apply bg-gradient-to-r from-[#FF6B3D] to-[#FF5722] hover:from-[#FF5722] hover:to-[#E64A19] font-semibold px-6 py-3 rounded-xl transition-all duration-200 shadow-lg shadow-orange-500/20;
+    color: #000000 !important;
+  }
+  
+  .btn-secondary {
+    @apply bg-gradient-to-r from-[#00D97E] to-[#00C26F] hover:from-[#00C26F] hover:to-[#00B363] font-semibold px-6 py-3 rounded-xl transition-all duration-200 shadow-lg shadow-green-500/20;
+    color: #000000 !important;
+  }
+  
+  .input-dark {
+    @apply bg-[#151922] border border-[#1E2430] rounded-xl px-4 py-3 placeholder-gray-500 focus:border-[#FF6B3D] focus:ring-2 focus:ring-[#FF6B3D]/20 outline-none transition-all;
+    color: #FF6B3D !important;
+  }
+  
+  .sidebar-link {
+    @apply flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-[#151922] transition-all duration-200;
+    color: #FF6B3D !important;
+  }
+  
+  .sidebar-link-active {
+    @apply flex items-center gap-3 px-4 py-3 rounded-xl bg-gradient-to-r from-[#FF6B3D]/10 to-[#FF5722]/10 border-l-2 border-[#FF6B3D];
+    color: white !important;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1A1D2E;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #3A3D4E;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #4A4D5E;
+}
+
+/* Smooth transitions */
+* {
+  transition-property: background-color, border-color, color, fill, stroke;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 150ms;
+}
+
+/* Animation keyframes */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(-20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.4s ease-out forwards;
+}
+
+.animate-slide-in {
+  animation: slideIn 0.3s ease-out forwards;
+}

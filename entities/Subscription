@@ -1,0 +1,61 @@
+{
+  "name": "Subscription",
+  "type": "object",
+  "properties": {
+    "user_email": {
+      "type": "string",
+      "description": "Subscriber email"
+    },
+    "plan": {
+      "type": "string",
+      "enum": [
+        "free",
+        "basic",
+        "premium",
+        "enterprise"
+      ],
+      "default": "free"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "cancelled",
+        "expired"
+      ],
+      "default": "active"
+    },
+    "start_date": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "end_date": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "features": {
+      "type": "object",
+      "properties": {
+        "max_services": {
+          "type": "number"
+        },
+        "featured_listing": {
+          "type": "boolean"
+        },
+        "priority_support": {
+          "type": "boolean"
+        },
+        "analytics": {
+          "type": "boolean"
+        },
+        "unlimited_portfolio": {
+          "type": "boolean"
+        }
+      }
+    }
+  },
+  "required": [
+    "user_email",
+    "plan"
+  ]
+}

@@ -1,0 +1,63 @@
+{
+  "name": "Service",
+  "type": "object",
+  "properties": {
+    "provider_id": {
+      "type": "string",
+      "description": "Reference to provider profile"
+    },
+    "provider_email": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string",
+      "description": "Service package title"
+    },
+    "description": {
+      "type": "string",
+      "description": "Detailed description"
+    },
+    "category_id": {
+      "type": "string",
+      "description": "Service category"
+    },
+    "price": {
+      "type": "number",
+      "description": "Package price in UGX"
+    },
+    "price_type": {
+      "type": "string",
+      "enum": [
+        "fixed",
+        "hourly",
+        "negotiable"
+      ],
+      "default": "fixed"
+    },
+    "delivery_days": {
+      "type": "number",
+      "description": "Estimated delivery time in days"
+    },
+    "deliverables": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "List of what's included in the package"
+    },
+    "image_url": {
+      "type": "string",
+      "description": "Service image"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    }
+  },
+  "required": [
+    "provider_id",
+    "title",
+    "category_id",
+    "price"
+  ]
+}
