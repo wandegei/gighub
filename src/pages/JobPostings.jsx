@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '../utils';
-import { base44 } from '@/api/base44Client';
-import { Plus, Briefcase, MapPin, Calendar, DollarSign, Search, Filter } from 'lucide-react';
+import { supabase } from "@/lib/supabaseClient";
+import { Plus, Briefcase, MapPin, Calendar, DollarSign, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -30,24 +30,36 @@ export default function JobPostings() {
   }, []);
 
   const loadData = async () => {
-    const [postingsData, categoriesData] = await Promise.all([
-      base44.entities.JobPosting.filter({ status: 'open' }, '-created_date'),
-      base44.entities.Category.list('name')
+    setLoading(true);
+
+    // Fetch job postings and categories in parallel
+    const [postingsRes, categoriesRes] = await Promise.all([
+      supabase
+        .from('JobPostings')
+        .select('*')
+        .eq('status', 'open')
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('Categories')
+        .select('*')
+        .order('name', { ascending: true })
     ]);
-    
-    setPostings(postingsData);
-    setCategories(categoriesData);
-    
-    try {
-      const isAuth = await base44.auth.isAuthenticated();
-      if (isAuth) {
-        const userData = await base44.auth.me();
-        setUser(userData);
-        const profiles = await base44.entities.Profile.filter({ user_email: userData.email });
-        if (profiles.length > 0) setProfile(profiles[0]);
-      }
-    } catch (e) {}
-    
+
+    if (postingsRes.data) setPostings(postingsRes.data);
+    if (categoriesRes.data) setCategories(categoriesRes.data);
+
+    // Get current user
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+    if (authUser) {
+      setUser(authUser);
+      const { data: profiles } = await supabase
+        .from('Profiles')
+        .select('*')
+        .eq('email', authUser.email)
+        .limit(1);
+      if (profiles?.length > 0) setProfile(profiles[0]);
+    }
+
     setLoading(false);
   };
 
@@ -191,7 +203,7 @@ export default function JobPostings() {
                         <DollarSign className="w-5 h-5" />
                         <span className="text-lg">{formatBudget(posting.budget_min, posting.budget_max)}</span>
                       </div>
-                      <p className="text-sm text-gray-500">Posted {format(new Date(posting.created_date), 'MMM d')}</p>
+                      <p className="text-sm text-gray-500">Posted {format(new Date(posting.created_at), 'MMM d')}</p>
                     </div>
                   </div>
                 </Link>

@@ -1,20 +1,20 @@
-import React, { useState, useEffect } from 'react';
-import { base44 } from '@/api/base44Client';
-import { 
-  Plus, 
-  Image as ImageIcon, 
-  Play, 
-  FileText, 
-  Trash2, 
+import { useState, useEffect } from "react";
+import {
+  Plus,
+  Image as ImageIcon,
+  Play,
+  FileText,
+  Trash2,
   Edit2,
   Loader2,
   Upload,
-  X
-} from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
+  X,
+} from "lucide-react";
+import { supabase } from "@/lib/supabaseClient";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -39,7 +39,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { toast } from 'sonner';
+import { toast } from "sonner";
 
 export default function DashboardPortfolio() {
   const [portfolio, setPortfolio] = useState([]);
@@ -50,12 +50,12 @@ export default function DashboardPortfolio() {
   const [selectedItem, setSelectedItem] = useState(null);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
-  
+
   const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    media_type: 'image',
-    media_url: ''
+    title: "",
+    description: "",
+    media_type: "image",
+    media_url: "",
   });
 
   useEffect(() => {
@@ -63,30 +63,58 @@ export default function DashboardPortfolio() {
   }, []);
 
   const loadData = async () => {
-    const user = await base44.auth.me();
-    
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return;
+
     // Load profile
-    const profiles = await base44.entities.Profile.filter({ user_email: user.email });
-    if (profiles.length > 0) {
+    const { data: profiles } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("user_email", user.email)
+      .limit(1);
+
+    if (profiles?.length > 0) {
       setProfile(profiles[0]);
-      
-      // Load portfolio
-      const items = await base44.entities.PortfolioItem.filter({ provider_id: profiles[0].id });
-      setPortfolio(items);
+
+      // Load portfolio items
+      const { data: items } = await supabase
+        .from("portfolio_items")
+        .select("*")
+        .eq("provider_id", profiles[0].id);
+      setPortfolio(items || []);
     }
-    
+
     setLoading(false);
   };
 
   const handleFileUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    
+
     setUploading(true);
-    const { file_url } = await base44.integrations.Core.UploadFile({ file });
-    setFormData(prev => ({ ...prev, media_url: file_url }));
+
+    // Upload file to Supabase Storage
+    const fileExt = file.name.split(".").pop();
+    const fileName = `${Date.now()}.${fileExt}`;
+    const { data, error } = await supabase.storage
+      .from("portfolio")
+      .upload(fileName, file);
+
+    if (error) {
+      toast.error("Upload failed");
+      setUploading(false);
+      return;
+    }
+
+    const { data: publicUrlData } = supabase.storage
+      .from("portfolio")
+      .getPublicUrl(fileName);
+
+    setFormData((prev) => ({ ...prev, media_url: publicUrlData.publicUrl }));
     setUploading(false);
-    toast.success('File uploaded');
+    toast.success("File uploaded");
   };
 
   const handleOpenDialog = (item = null) => {
@@ -94,17 +122,17 @@ export default function DashboardPortfolio() {
       setSelectedItem(item);
       setFormData({
         title: item.title,
-        description: item.description || '',
+        description: item.description || "",
         media_type: item.media_type,
-        media_url: item.media_url
+        media_url: item.media_url,
       });
     } else {
       setSelectedItem(null);
       setFormData({
-        title: '',
-        description: '',
-        media_type: 'image',
-        media_url: ''
+        title: "",
+        description: "",
+        media_type: "image",
+        media_url: "",
       });
     }
     setDialogOpen(true);
@@ -112,26 +140,26 @@ export default function DashboardPortfolio() {
 
   const handleSave = async () => {
     if (!formData.title || !formData.media_url) {
-      toast.error('Please fill in title and upload a file');
+      toast.error("Please fill in title and upload a file");
       return;
     }
-    
+
     setSaving(true);
-    
+
     if (selectedItem) {
-      await base44.entities.PortfolioItem.update(selectedItem.id, {
-        ...formData,
-        provider_id: profile.id
-      });
-      toast.success('Portfolio item updated');
+      await supabase
+        .from("portfolio_items")
+        .update({ ...formData, provider_id: profile.id })
+        .eq("id", selectedItem.id);
+      toast.success("Portfolio item updated");
     } else {
-      await base44.entities.PortfolioItem.create({
+      await supabase.from("portfolio_items").insert({
         ...formData,
-        provider_id: profile.id
+        provider_id: profile.id,
       });
-      toast.success('Portfolio item added');
+      toast.success("Portfolio item added");
     }
-    
+
     setDialogOpen(false);
     setSaving(false);
     loadData();
@@ -139,9 +167,9 @@ export default function DashboardPortfolio() {
 
   const handleDelete = async () => {
     if (!selectedItem) return;
-    
-    await base44.entities.PortfolioItem.delete(selectedItem.id);
-    toast.success('Portfolio item deleted');
+
+    await supabase.from("portfolio_items").delete().eq("id", selectedItem.id);
+    toast.success("Portfolio item deleted");
     setDeleteDialogOpen(false);
     setSelectedItem(null);
     loadData();
@@ -150,7 +178,7 @@ export default function DashboardPortfolio() {
   const mediaTypeIcons = {
     image: ImageIcon,
     video: Play,
-    document: FileText
+    document: FileText,
   };
 
   if (loading) {
@@ -171,7 +199,7 @@ export default function DashboardPortfolio() {
     );
   }
 
-  if (!profile || profile.user_type !== 'provider') {
+  if (!profile || profile.user_type !== "provider") {
     return (
       <div className="p-6 lg:p-8 flex items-center justify-center min-h-[60vh]">
         <div className="card-dark p-12 text-center max-w-md">
@@ -203,22 +231,18 @@ export default function DashboardPortfolio() {
           {portfolio.map((item) => {
             const Icon = mediaTypeIcons[item.media_type] || ImageIcon;
             return (
-              <div 
-                key={item.id} 
+              <div
+                key={item.id}
                 className="group relative aspect-square rounded-xl overflow-hidden bg-[#1A1D2E] border border-[#2A2D3E]"
               >
-                {item.media_type === 'image' ? (
-                  <img 
-                    src={item.media_url} 
-                    alt={item.title}
-                    className="w-full h-full object-cover"
-                  />
+                {item.media_type === "image" ? (
+                  <img src={item.media_url} alt={item.title} className="w-full h-full object-cover" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center">
                     <Icon className="w-16 h-16 text-gray-500" />
                   </div>
                 )}
-                
+
                 {/* Overlay */}
                 <div className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-4">
                   <div className="flex justify-end gap-2">
@@ -266,13 +290,13 @@ export default function DashboardPortfolio() {
         <DialogContent className="bg-[#1A1D2E] border-[#2A2D3E]">
           <DialogHeader>
             <DialogTitle className="text-white">
-              {selectedItem ? 'Edit Portfolio Item' : 'Add Portfolio Item'}
+              {selectedItem ? "Edit Portfolio Item" : "Add Portfolio Item"}
             </DialogTitle>
             <DialogDescription className="text-gray-500">
               Upload your work to showcase to potential clients
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-4 mt-4">
             <div>
               <Label className="text-gray-400 mb-2 block">Title</Label>
@@ -283,7 +307,7 @@ export default function DashboardPortfolio() {
                 className="input-dark"
               />
             </div>
-            
+
             <div>
               <Label className="text-gray-400 mb-2 block">Description</Label>
               <Textarea
@@ -293,13 +317,10 @@ export default function DashboardPortfolio() {
                 className="input-dark min-h-[80px]"
               />
             </div>
-            
+
             <div>
               <Label className="text-gray-400 mb-2 block">Media Type</Label>
-              <Select 
-                value={formData.media_type} 
-                onValueChange={(value) => setFormData({ ...formData, media_type: value })}
-              >
+              <Select value={formData.media_type} onValueChange={(value) => setFormData({ ...formData, media_type: value })}>
                 <SelectTrigger className="input-dark">
                   <SelectValue />
                 </SelectTrigger>
@@ -310,21 +331,17 @@ export default function DashboardPortfolio() {
                 </SelectContent>
               </Select>
             </div>
-            
+
             <div>
               <Label className="text-gray-400 mb-2 block">Upload File</Label>
               {formData.media_url ? (
                 <div className="relative">
-                  {formData.media_type === 'image' ? (
-                    <img 
-                      src={formData.media_url} 
-                      alt="Preview"
-                      className="w-full h-40 object-cover rounded-xl"
-                    />
+                  {formData.media_type === "image" ? (
+                    <img src={formData.media_url} alt="Preview" className="w-full h-40 object-cover rounded-xl" />
                   ) : (
                     <div className="w-full h-40 bg-[#0F1117] rounded-xl flex items-center justify-center border border-[#2A2D3E]">
                       <div className="text-center">
-                        {formData.media_type === 'video' ? (
+                        {formData.media_type === "video" ? (
                           <Play className="w-8 h-8 text-gray-500 mx-auto mb-2" />
                         ) : (
                           <FileText className="w-8 h-8 text-gray-500 mx-auto mb-2" />
@@ -334,7 +351,7 @@ export default function DashboardPortfolio() {
                     </div>
                   )}
                   <button
-                    onClick={() => setFormData({ ...formData, media_url: '' })}
+                    onClick={() => setFormData({ ...formData, media_url: "" })}
                     className="absolute top-2 right-2 w-8 h-8 rounded-lg bg-black/50 flex items-center justify-center hover:bg-black/70 transition-colors"
                   >
                     <X className="w-4 h-4 text-white" />
@@ -352,29 +369,18 @@ export default function DashboardPortfolio() {
                       </>
                     )}
                   </div>
-                  <input 
-                    type="file" 
-                    onChange={handleFileUpload}
-                    className="hidden"
-                    disabled={uploading}
-                  />
+                  <input type="file" onChange={handleFileUpload} className="hidden" disabled={uploading} />
                 </label>
               )}
             </div>
-            
-            <Button 
-              onClick={handleSave} 
-              disabled={saving}
-              className="btn-primary w-full"
-            >
+
+            <Button onClick={handleSave} disabled={saving} className="btn-primary w-full">
               {saving ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   Saving...
                 </>
-              ) : (
-                selectedItem ? 'Update Item' : 'Add Item'
-              )}
+              ) : selectedItem ? "Update Item" : "Add Item"}
             </Button>
           </div>
         </DialogContent>

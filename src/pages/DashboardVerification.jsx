@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { base44 } from '@/api/base44Client';
-import { Shield, Upload, CheckCircle2, Clock, XCircle, Loader2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
+import React, { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabaseClient";
+import { Shield, Upload, CheckCircle2, Clock, XCircle, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { toast } from 'sonner';
+import { toast } from "sonner";
 
 export default function DashboardVerification() {
   const [user, setUser] = useState(null);
@@ -21,11 +21,11 @@ export default function DashboardVerification() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [uploadingFile, setUploadingFile] = useState(false);
-  
+
   const [formData, setFormData] = useState({
-    verification_type: '',
-    notes: '',
-    document_url: ''
+    verification_type: "",
+    notes: "",
+    document_url: "",
   });
 
   useEffect(() => {
@@ -33,70 +33,92 @@ export default function DashboardVerification() {
   }, []);
 
   const loadData = async () => {
-    const userData = await base44.auth.me();
+    // Get current user
+    const { data: { user: userData } } = await supabase.auth.getUser();
+    if (!userData) return;
     setUser(userData);
-    
-    const profiles = await base44.entities.Profile.filter({ user_email: userData.email });
-    if (profiles.length > 0) {
+
+    // Load profile
+    const { data: profiles } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("user_email", userData.email)
+      .limit(1);
+    if (profiles?.length > 0) {
       setProfile(profiles[0]);
-      const verifs = await base44.entities.Verification.filter({ provider_id: profiles[0].id });
-      setVerifications(verifs);
+
+      // Load verifications
+      const { data: verifs } = await supabase
+        .from("verifications")
+        .select("*")
+        .eq("provider_id", profiles[0].id)
+        .order("created_date", { ascending: false });
+      setVerifications(verifs || []);
     }
-    
+
     setLoading(false);
   };
 
   const handleFileUpload = async (e) => {
-    const file = e.target.files[0];
+    const file = e.target.files?.[0];
     if (!file) return;
-    
+
     setUploadingFile(true);
     try {
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
-      setFormData({ ...formData, document_url: file_url });
-      toast.success('Document uploaded');
-    } catch (error) {
-      toast.error('Upload failed');
+      const fileName = `${Date.now()}_${file.name}`;
+      const { error } = await supabase.storage
+        .from("verification-documents")
+        .upload(fileName, file);
+
+      if (error) throw error;
+
+      const { data: publicUrlData } = supabase.storage
+        .from("verification-documents")
+        .getPublicUrl(fileName);
+
+      setFormData(prev => ({ ...prev, document_url: publicUrlData.publicUrl }));
+      toast.success("Document uploaded");
+    } catch (err) {
+      toast.error("Upload failed");
     }
     setUploadingFile(false);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
     if (!formData.verification_type) {
-      toast.error('Please select verification type');
+      toast.error("Please select verification type");
       return;
     }
-    
+
     setSubmitting(true);
-    
-    await base44.entities.Verification.create({
+    await supabase.from("verifications").insert({
       provider_id: profile.id,
       provider_email: user.email,
       verification_type: formData.verification_type,
-      status: 'pending',
+      status: "pending",
       document_url: formData.document_url,
-      notes: formData.notes
+      notes: formData.notes,
+      created_date: new Date().toISOString(),
     });
-    
-    toast.success('Verification request submitted!');
-    setFormData({ verification_type: '', notes: '', document_url: '' });
+
+    toast.success("Verification request submitted!");
+    setFormData({ verification_type: "", notes: "", document_url: "" });
     setSubmitting(false);
     loadData();
   };
 
   const statusConfig = {
-    pending: { icon: Clock, color: 'bg-yellow-500', text: 'Pending Review' },
-    verified: { icon: CheckCircle2, color: 'bg-green-500', text: 'Verified' },
-    rejected: { icon: XCircle, color: 'bg-red-500', text: 'Rejected' }
+    pending: { icon: Clock, color: "bg-yellow-500", text: "Pending Review" },
+    verified: { icon: CheckCircle2, color: "bg-green-500", text: "Verified" },
+    rejected: { icon: XCircle, color: "bg-red-500", text: "Rejected" },
   };
 
   const verificationTypes = {
-    identity: { name: 'Identity Verification', desc: 'Verify your identity with government-issued ID' },
-    skills: { name: 'Skills Verification', desc: 'Verify your skills with certificates or portfolio' },
-    business: { name: 'Business Verification', desc: 'Verify your business registration' },
-    background: { name: 'Background Check', desc: 'Complete background verification' }
+    identity: { name: "Identity Verification", desc: "Verify your identity with government-issued ID" },
+    skills: { name: "Skills Verification", desc: "Verify your skills with certificates or portfolio" },
+    business: { name: "Business Verification", desc: "Verify your business registration" },
+    background: { name: "Background Check", desc: "Complete background verification" },
   };
 
   if (loading) {
@@ -110,7 +132,7 @@ export default function DashboardVerification() {
     );
   }
 
-  if (profile?.user_type !== 'provider') {
+  if (profile?.user_type !== "provider") {
     return (
       <div className="p-6 lg:p-8">
         <div className="card-dark p-12 text-center">
@@ -129,6 +151,7 @@ export default function DashboardVerification() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Request Verification */}
         <div className="card-dark p-6">
           <h2 className="text-xl font-semibold text-white mb-6 flex items-center gap-2">
             <Shield className="w-5 h-5 text-[#FF6B3D]" />
@@ -212,15 +235,15 @@ export default function DashboardVerification() {
           </form>
         </div>
 
+        {/* Your Verifications */}
         <div className="card-dark p-6">
           <h2 className="text-xl font-semibold text-white mb-6">Your Verifications</h2>
-          
           {verifications.length > 0 ? (
             <div className="space-y-4">
               {verifications.map((verif) => {
                 const config = statusConfig[verif.status];
                 const StatusIcon = config.icon;
-                
+
                 return (
                   <div key={verif.id} className="p-4 rounded-xl bg-[#0A0E1A] border border-[#1E2430]">
                     <div className="flex items-start justify-between mb-2">
@@ -237,9 +260,7 @@ export default function DashboardVerification() {
                         {config.text}
                       </Badge>
                     </div>
-                    {verif.notes && (
-                      <p className="text-sm text-white mt-2">{verif.notes}</p>
-                    )}
+                    {verif.notes && <p className="text-sm text-white mt-2">{verif.notes}</p>}
                   </div>
                 );
               })}
@@ -253,37 +274,24 @@ export default function DashboardVerification() {
         </div>
       </div>
 
+      {/* Why Get Verified */}
       <div className="card-dark p-6 mt-6">
         <h3 className="text-lg font-semibold text-white mb-4">Why Get Verified?</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="flex items-start gap-3">
-            <CheckCircle2 className="w-5 h-5 text-green-500 mt-1 flex-shrink-0" />
-            <div>
-              <h4 className="font-medium text-white">Build Trust</h4>
-              <p className="text-sm text-gray-500">Clients are more likely to hire verified providers</p>
+          {["Build Trust", "Stand Out", "Higher Rates", "Security"].map((title, i) => (
+            <div key={i} className="flex items-start gap-3">
+              <CheckCircle2 className="w-5 h-5 text-green-500 mt-1 flex-shrink-0" />
+              <div>
+                <h4 className="font-medium text-white">{title}</h4>
+                <p className="text-sm text-gray-500">
+                  {title === "Build Trust" && "Clients are more likely to hire verified providers"}
+                  {title === "Stand Out" && "Get priority in search results"}
+                  {title === "Higher Rates" && "Command better prices for your services"}
+                  {title === "Security" && "Protected platform with verified users"}
+                </p>
+              </div>
             </div>
-          </div>
-          <div className="flex items-start gap-3">
-            <CheckCircle2 className="w-5 h-5 text-green-500 mt-1 flex-shrink-0" />
-            <div>
-              <h4 className="font-medium text-white">Stand Out</h4>
-              <p className="text-sm text-gray-500">Get priority in search results</p>
-            </div>
-          </div>
-          <div className="flex items-start gap-3">
-            <CheckCircle2 className="w-5 h-5 text-green-500 mt-1 flex-shrink-0" />
-            <div>
-              <h4 className="font-medium text-white">Higher Rates</h4>
-              <p className="text-sm text-gray-500">Command better prices for your services</p>
-            </div>
-          </div>
-          <div className="flex items-start gap-3">
-            <CheckCircle2 className="w-5 h-5 text-green-500 mt-1 flex-shrink-0" />
-            <div>
-              <h4 className="font-medium text-white">Security</h4>
-              <p className="text-sm text-gray-500">Protected platform with verified users</p>
-            </div>
-          </div>
+          ))}
         </div>
       </div>
     </div>

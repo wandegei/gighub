@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { base44 } from '@/api/base44Client';
+import { supabase } from "@/lib/supabaseClient";
 import { Send, Search, MessageSquare, ArrowLeft } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -28,25 +28,36 @@ export default function Messages() {
   }, [selectedConvo]);
 
   const loadData = async () => {
-    const userData = await base44.auth.me();
-    setUser(userData);
-    
-    const profiles = await base44.entities.Profile.filter({ user_email: userData.email });
+    setLoading(true);
+
+    // Get current user
+    const { data: userData } = await supabase.auth.getUser();
+    if (!userData?.user) return;
+    setUser(userData.user);
+
+    // Get user profile
+    const { data: profiles } = await supabase
+      .from('Profile')
+      .select('*')
+      .eq('user_email', userData.user.email);
     if (profiles.length > 0) setProfile(profiles[0]);
-    
-    const allMessages = await base44.entities.Message.filter({
-      $or: [
-        { sender_email: userData.email },
-        { receiver_email: userData.email }
-      ]
-    }, '-created_date');
-    
+
+    // Fetch all messages involving the user
+    const { data: allMessages } = await supabase
+      .from('Message')
+      .select('*')
+      .or(
+        `sender_email.eq.${userData.user.email},receiver_email.eq.${userData.user.email}`
+      )
+      .order('created_date', { ascending: false });
+
+    // Build conversations
     const convos = {};
     allMessages.forEach(msg => {
-      const otherEmail = msg.sender_email === userData.email ? msg.receiver_email : msg.sender_email;
-      const otherName = msg.sender_email === userData.email ? msg.receiver_name : msg.sender_name;
-      const convoId = msg.conversation_id || `${[msg.sender_email, msg.receiver_email].sort().join('-')}`;
-      
+      const otherEmail = msg.sender_email === userData.user.email ? msg.receiver_email : msg.sender_email;
+      const otherName = msg.sender_email === userData.user.email ? msg.receiver_name : msg.sender_name;
+      const convoId = msg.conversation_id || [msg.sender_email, msg.receiver_email].sort().join('-');
+
       if (!convos[convoId]) {
         convos[convoId] = {
           id: convoId,
@@ -54,59 +65,67 @@ export default function Messages() {
           otherName,
           lastMessage: msg.message,
           lastMessageTime: msg.created_date,
-          unread: msg.receiver_email === userData.email && !msg.is_read ? 1 : 0
+          unread: msg.receiver_email === userData.user.email && !msg.is_read ? 1 : 0
         };
       } else {
-        if (msg.receiver_email === userData.email && !msg.is_read) {
+        if (msg.receiver_email === userData.user.email && !msg.is_read) {
           convos[convoId].unread++;
         }
       }
     });
-    
+
     setConversations(Object.values(convos));
     setLoading(false);
   };
 
   const loadMessages = async () => {
-    const allMessages = await base44.entities.Message.filter({
-      $or: [
-        { sender_email: user.email, receiver_email: selectedConvo.otherEmail },
-        { sender_email: selectedConvo.otherEmail, receiver_email: user.email }
-      ]
-    }, 'created_date');
-    
+    const { data: allMessages } = await supabase
+      .from('Message')
+      .select('*')
+      .or(
+        `and(sender_email.eq.${user.email},receiver_email.eq.${selectedConvo.otherEmail}),and(sender_email.eq.${selectedConvo.otherEmail},receiver_email.eq.${user.email})`
+      )
+      .order('created_date', { ascending: true });
+
     setMessages(allMessages);
-    
+
+    // Mark unread messages as read
     const unreadMessages = allMessages.filter(m => m.receiver_email === user.email && !m.is_read);
     for (const msg of unreadMessages) {
-      await base44.entities.Message.update(msg.id, { is_read: true });
+      await supabase
+        .from('Message')
+        .update({ is_read: true })
+        .eq('id', msg.id);
     }
   };
 
   const handleSend = async () => {
     if (!newMessage.trim()) return;
-    
+
     setSending(true);
-    
+
     const convoId = selectedConvo.id;
-    await base44.entities.Message.create({
+
+    await supabase.from('Message').insert({
       conversation_id: convoId,
       sender_email: user.email,
       sender_name: profile?.full_name || 'User',
       receiver_email: selectedConvo.otherEmail,
       receiver_name: selectedConvo.otherName,
       message: newMessage,
-      is_read: false
+      is_read: false,
+      created_date: new Date().toISOString()
     });
-    
-    await base44.entities.Notification.create({
+
+    await supabase.from('Notification').insert({
       user_email: selectedConvo.otherEmail,
       title: 'New Message',
       message: `${profile?.full_name || 'Someone'} sent you a message`,
       type: 'system',
-      link: 'Messages'
+      link: 'Messages',
+      created_date: new Date().toISOString()
     });
-    
+
     setNewMessage('');
     setSending(false);
     loadMessages();
@@ -127,7 +146,7 @@ export default function Messages() {
   return (
     <div className="p-6 lg:p-8">
       <h1 className="text-2xl lg:text-3xl font-bold text-white mb-6">Messages</h1>
-      
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 h-[calc(100vh-200px)]">
         {/* Conversations List */}
         <div className={`card-dark p-4 overflow-y-auto ${selectedConvo ? 'hidden lg:block' : ''}`}>
@@ -135,7 +154,7 @@ export default function Messages() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
             <Input placeholder="Search messages..." className="input-dark pl-10" />
           </div>
-          
+
           {conversations.length > 0 ? (
             <div className="space-y-2">
               {conversations.map((convo) => (
@@ -143,8 +162,8 @@ export default function Messages() {
                   key={convo.id}
                   onClick={() => setSelectedConvo(convo)}
                   className={`w-full text-left p-3 rounded-xl transition-all ${
-                    selectedConvo?.id === convo.id 
-                      ? 'bg-[#FF6B3D]/10 border border-[#FF6B3D]' 
+                    selectedConvo?.id === convo.id
+                      ? 'bg-[#FF6B3D]/10 border border-[#FF6B3D]'
                       : 'hover:bg-[#0A0E1A]'
                   }`}
                 >
@@ -189,16 +208,14 @@ export default function Messages() {
                   <p className="text-sm text-gray-500">{selectedConvo.otherEmail}</p>
                 </div>
               </div>
-              
+
               <div className="flex-1 overflow-y-auto p-4 space-y-4">
                 {messages.map((msg) => {
                   const isSent = msg.sender_email === user.email;
                   return (
                     <div key={msg.id} className={`flex ${isSent ? 'justify-end' : 'justify-start'}`}>
                       <div className={`max-w-[70%] rounded-2xl px-4 py-2 ${
-                        isSent 
-                          ? 'bg-gradient-to-r from-[#FF6B3D] to-[#FF5722]' 
-                          : 'bg-[#151922]'
+                        isSent ? 'bg-gradient-to-r from-[#FF6B3D] to-[#FF5722]' : 'bg-[#151922]'
                       }`}>
                         <p style={{ color: isSent ? 'black' : 'white' }}>{msg.message}</p>
                         <p className={`text-xs mt-1 ${isSent ? 'text-black/70' : 'text-gray-500'}`}>
@@ -209,7 +226,7 @@ export default function Messages() {
                   );
                 })}
               </div>
-              
+
               <div className="p-4 border-t border-[#1E2430]">
                 <div className="flex gap-2">
                   <Textarea

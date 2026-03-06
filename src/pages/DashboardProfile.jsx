@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { base44 } from '@/api/base44Client';
-import { User, MapPin, Phone, Camera, Save, Loader2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
+import { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabaseClient";
+import { User, MapPin, Phone, Camera, Save, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { toast } from 'sonner';
+import { toast } from "sonner";
 
 export default function DashboardProfile() {
   const [user, setUser] = useState(null);
@@ -22,14 +22,14 @@ export default function DashboardProfile() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
-  
+
   const [formData, setFormData] = useState({
-    full_name: '',
-    phone_number: '',
-    location: '',
-    bio: '',
-    user_type: 'client',
-    profile_image_url: ''
+    full_name: "",
+    phone_number: "",
+    location: "",
+    bio: "",
+    user_type: "client",
+    profile_image_url: "",
   });
 
   useEffect(() => {
@@ -37,120 +37,142 @@ export default function DashboardProfile() {
   }, []);
 
   const loadData = async () => {
-    const userData = await base44.auth.me();
+    const { data: { user: userData } } = await supabase.auth.getUser();
+    if (!userData) return;
     setUser(userData);
-    
+
     // Load profile
-    const profiles = await base44.entities.Profile.filter({ user_email: userData.email });
-    if (profiles.length > 0) {
+    const { data: profiles } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("user_email", userData.email)
+      .limit(1);
+
+    if (profiles?.length > 0) {
       const p = profiles[0];
       setProfile(p);
       setFormData({
-        full_name: p.full_name || '',
-        phone_number: p.phone_number || '',
-        location: p.location || '',
-        bio: p.bio || '',
-        user_type: p.user_type || 'client',
-        profile_image_url: p.profile_image_url || ''
+        full_name: p.full_name || "",
+        phone_number: p.phone_number || "",
+        location: p.location || "",
+        bio: p.bio || "",
+        user_type: p.user_type || "client",
+        profile_image_url: p.profile_image_url || "",
       });
-      
-      // Load selected categories
-      const relations = await base44.entities.ProviderCategory.filter({ provider_id: p.id });
-      setSelectedCategories(relations.map(r => r.category_id));
+
+      // Load selected categories for provider
+      const { data: relations } = await supabase
+        .from("provider_categories")
+        .select("category_id")
+        .eq("provider_id", p.id);
+      setSelectedCategories(relations.map((r) => r.category_id));
     } else {
-      setFormData(prev => ({ ...prev, full_name: userData.full_name || '' }));
+      setFormData((prev) => ({ ...prev, full_name: userData.full_name || "" }));
     }
-    
+
     // Load all categories
-    const cats = await base44.entities.Category.list('name');
-    setCategories(cats);
-    
+    const { data: cats } = await supabase.from("categories").select("*").order("name");
+    setCategories(cats || []);
+
     setLoading(false);
   };
 
   const handleImageUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    
+
     setUploading(true);
-    const { file_url } = await base44.integrations.Core.UploadFile({ file });
-    setFormData(prev => ({ ...prev, profile_image_url: file_url }));
+
+    const fileExt = file.name.split(".").pop();
+    const fileName = `${Date.now()}.${fileExt}`;
+    const { error } = await supabase.storage.from("profiles").upload(fileName, file);
+
+    if (error) {
+      toast.error("Upload failed");
+      setUploading(false);
+      return;
+    }
+
+    const { data: publicUrlData } = supabase.storage.from("profiles").getPublicUrl(fileName);
+    setFormData((prev) => ({ ...prev, profile_image_url: publicUrlData.publicUrl }));
     setUploading(false);
-    toast.success('Image uploaded');
+    toast.success("Image uploaded");
   };
 
   const handleCategoryToggle = (categoryId) => {
-    setSelectedCategories(prev => 
-      prev.includes(categoryId)
-        ? prev.filter(id => id !== categoryId)
-        : [...prev, categoryId]
+    setSelectedCategories((prev) =>
+      prev.includes(categoryId) ? prev.filter((id) => id !== categoryId) : [...prev, categoryId]
     );
   };
 
   const handleSave = async () => {
     if (!formData.full_name) {
-      toast.error('Please enter your name');
+      toast.error("Please enter your name");
       return;
     }
-    
+
     setSaving(true);
-    
+
     if (profile) {
       // Update existing profile
-      await base44.entities.Profile.update(profile.id, {
-        ...formData,
-        user_email: user.email
-      });
-      
+      await supabase
+        .from("profiles")
+        .update({ ...formData, user_email: user.email })
+        .eq("id", profile.id);
+
       // Update categories if provider
-      if (formData.user_type === 'provider') {
-        // Delete old relations
-        const oldRelations = await base44.entities.ProviderCategory.filter({ provider_id: profile.id });
+      if (formData.user_type === "provider") {
+        const { data: oldRelations } = await supabase
+          .from("provider_categories")
+          .select("*")
+          .eq("provider_id", profile.id);
+
         for (const rel of oldRelations) {
-          await base44.entities.ProviderCategory.delete(rel.id);
+          await supabase.from("provider_categories").delete().eq("id", rel.id);
         }
-        // Create new relations
+
         for (const catId of selectedCategories) {
-          await base44.entities.ProviderCategory.create({
+          await supabase.from("provider_categories").insert({
             provider_id: profile.id,
             category_id: catId,
-            provider_email: user.email
+            provider_email: user.email,
           });
         }
       }
-      
-      toast.success('Profile updated');
+
+      toast.success("Profile updated");
     } else {
       // Create new profile
-      const newProfile = await base44.entities.Profile.create({
-        ...formData,
-        user_email: user.email
-      });
+      const { data: newProfile } = await supabase
+        .from("profiles")
+        .insert({ ...formData, user_email: user.email })
+        .select()
+        .single();
       setProfile(newProfile);
-      
+
       // Create wallet
-      await base44.entities.Wallet.create({
+      await supabase.from("wallets").insert({
         user_id: newProfile.id,
         user_email: user.email,
         balance: 0,
         available_balance: 0,
-        locked_balance: 0
+        locked_balance: 0,
       });
-      
+
       // Create category relations if provider
-      if (formData.user_type === 'provider') {
+      if (formData.user_type === "provider") {
         for (const catId of selectedCategories) {
-          await base44.entities.ProviderCategory.create({
+          await supabase.from("provider_categories").insert({
             provider_id: newProfile.id,
             category_id: catId,
-            provider_email: user.email
+            provider_email: user.email,
           });
         }
       }
-      
-      toast.success('Profile created');
+
+      toast.success("Profile created");
     }
-    
+
     setSaving(false);
   };
 
@@ -178,7 +200,7 @@ export default function DashboardProfile() {
     <div className="p-6 lg:p-8">
       <div className="max-w-2xl mx-auto">
         <h1 className="text-2xl lg:text-3xl font-bold text-white mb-8">Edit Profile</h1>
-        
+
         <div className="card-dark p-6 lg:p-8">
           {/* Avatar Upload */}
           <div className="flex flex-col items-center mb-8">
@@ -186,8 +208,8 @@ export default function DashboardProfile() {
               <div className="w-32 h-32 rounded-full bg-gradient-to-br from-[#FF6633] to-[#E55A2B] p-1">
                 <div className="w-full h-full rounded-full overflow-hidden bg-[#1A1D2E]">
                   {formData.profile_image_url ? (
-                    <img 
-                      src={formData.profile_image_url} 
+                    <img
+                      src={formData.profile_image_url}
                       alt="Profile"
                       className="w-full h-full object-cover"
                     />
@@ -204,9 +226,9 @@ export default function DashboardProfile() {
                 ) : (
                   <Camera className="w-5 h-5 text-white" />
                 )}
-                <input 
-                  type="file" 
-                  accept="image/*" 
+                <input
+                  type="file"
+                  accept="image/*"
                   onChange={handleImageUpload}
                   className="hidden"
                   disabled={uploading}
@@ -230,8 +252,8 @@ export default function DashboardProfile() {
 
             <div>
               <Label className="text-gray-400 mb-2 block">Account Type</Label>
-              <Select 
-                value={formData.user_type} 
+              <Select
+                value={formData.user_type}
                 onValueChange={(value) => setFormData({ ...formData, user_type: value })}
               >
                 <SelectTrigger className="input-dark">
@@ -281,7 +303,7 @@ export default function DashboardProfile() {
             </div>
 
             {/* Categories (for providers) */}
-            {formData.user_type === 'provider' && (
+            {formData.user_type === "provider" && (
               <div>
                 <Label className="text-gray-400 mb-3 block">Service Categories</Label>
                 <div className="flex flex-wrap gap-2">
@@ -292,8 +314,8 @@ export default function DashboardProfile() {
                       onClick={() => handleCategoryToggle(cat.id)}
                       className={`px-4 py-2 rounded-xl text-sm transition-all ${
                         selectedCategories.includes(cat.id)
-                          ? 'bg-[#FF6633] text-white'
-                          : 'bg-[#0F1117] text-gray-400 border border-[#2A2D3E] hover:border-[#FF6633]/50'
+                          ? "bg-[#FF6633] text-white"
+                          : "bg-[#0F1117] text-gray-400 border border-[#2A2D3E] hover:border-[#FF6633]/50"
                       }`}
                     >
                       {cat.name}
@@ -306,11 +328,7 @@ export default function DashboardProfile() {
               </div>
             )}
 
-            <Button 
-              onClick={handleSave} 
-              disabled={saving}
-              className="btn-primary w-full"
-            >
+            <Button onClick={handleSave} disabled={saving} className="btn-primary w-full">
               {saving ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />

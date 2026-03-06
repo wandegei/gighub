@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { createPageUrl } from '../utils';
-import { base44 } from '@/api/base44Client';
-import { Briefcase, Plus, Search, Filter } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
+import { createPageUrl } from "../utils";
+import { supabase } from "../lib/supabaseClient";
+import { Briefcase, Plus, Search, Filter } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -12,67 +12,83 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import JobCard from '../components/jobs/JobCard';
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import JobCard from "../components/jobs/JobCard";
 
 export default function DashboardJobs() {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [roleFilter, setRoleFilter] = useState('all');
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [roleFilter, setRoleFilter] = useState("all");
 
   useEffect(() => {
     loadData();
   }, []);
 
   const loadData = async () => {
-    const userData = await base44.auth.me();
-    setUser(userData);
-    
-    // Load profile
-    const profiles = await base44.entities.Profile.filter({ user_email: userData.email });
-    if (profiles.length > 0) {
-      setProfile(profiles[0]);
+    // Get authenticated user
+    const {
+      data: { user: currentUser },
+      error: userError,
+    } = await supabase.auth.getUser();
+    if (userError || !currentUser) {
+      window.location.href = createPageUrl("CompleteProfile"); // redirect if not logged in
+      return;
     }
-    
+    setUser(currentUser);
+
+    // Load profile
+    const { data: profiles } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("user_email", currentUser.email);
+    if (profiles?.length > 0) setProfile(profiles[0]);
+
     // Load jobs
-    const allJobs = await base44.entities.Job.list('-created_date');
-    const userJobs = allJobs.filter(j => 
-      j.client_email === userData.email || j.provider_email === userData.email
+    const { data: allJobs } = await supabase
+      .from("jobs")
+      .select("*")
+      .order("created_date", { ascending: false });
+
+    const userJobs = (allJobs || []).filter(
+      (j) =>
+        j.client_email === currentUser.email ||
+        j.provider_email === currentUser.email
     );
     setJobs(userJobs);
-    
+
     setLoading(false);
   };
 
-  const filteredJobs = jobs.filter(job => {
+  const filteredJobs = jobs.filter((job) => {
     // Search filter
-    const matchesSearch = job.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          job.description?.toLowerCase().includes(searchQuery.toLowerCase());
-    
+    const matchesSearch =
+      job.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      job.description?.toLowerCase().includes(searchQuery.toLowerCase());
+
     // Status filter
-    const matchesStatus = statusFilter === 'all' || job.status === statusFilter;
-    
+    const matchesStatus = statusFilter === "all" || job.status === statusFilter;
+
     // Role filter
     let matchesRole = true;
-    if (roleFilter === 'client') {
+    if (roleFilter === "client") {
       matchesRole = job.client_email === user?.email;
-    } else if (roleFilter === 'provider') {
+    } else if (roleFilter === "provider") {
       matchesRole = job.provider_email === user?.email;
     }
-    
+
     return matchesSearch && matchesStatus && matchesRole;
   });
 
   const statusCounts = {
     all: jobs.length,
-    pending: jobs.filter(j => j.status === 'pending').length,
-    funded: jobs.filter(j => j.status === 'funded').length,
-    in_progress: jobs.filter(j => j.status === 'in_progress').length,
-    completed: jobs.filter(j => j.status === 'completed').length,
+    pending: jobs.filter((j) => j.status === "pending").length,
+    funded: jobs.filter((j) => j.status === "funded").length,
+    in_progress: jobs.filter((j) => j.status === "in_progress").length,
+    completed: jobs.filter((j) => j.status === "completed").length,
   };
 
   return (
@@ -80,11 +96,13 @@ export default function DashboardJobs() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-2xl lg:text-3xl font-bold text-white mb-2">My Jobs</h1>
+          <h1 className="text-2xl lg:text-3xl font-bold text-white mb-2">
+            My Jobs
+          </h1>
           <p className="text-gray-500">Manage your jobs and track progress</p>
         </div>
-        {profile?.user_type === 'client' && (
-          <Link to={createPageUrl('Providers')}>
+        {profile?.user_type === "client" && (
+          <Link to={createPageUrl("Providers")}>
             <Button className="btn-primary">
               <Plus className="w-4 h-4 mr-2" />
               Create New Job
@@ -104,7 +122,7 @@ export default function DashboardJobs() {
             className="input-dark pl-12"
           />
         </div>
-        
+
         <div className="flex gap-3">
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="input-dark w-[160px]">
@@ -115,11 +133,13 @@ export default function DashboardJobs() {
               <SelectItem value="all">All Status ({statusCounts.all})</SelectItem>
               <SelectItem value="pending">Pending ({statusCounts.pending})</SelectItem>
               <SelectItem value="funded">Funded ({statusCounts.funded})</SelectItem>
-              <SelectItem value="in_progress">In Progress ({statusCounts.in_progress})</SelectItem>
+              <SelectItem value="in_progress">
+                In Progress ({statusCounts.in_progress})
+              </SelectItem>
               <SelectItem value="completed">Completed ({statusCounts.completed})</SelectItem>
             </SelectContent>
           </Select>
-          
+
           <Select value={roleFilter} onValueChange={setRoleFilter}>
             <SelectTrigger className="input-dark w-[160px]">
               <SelectValue placeholder="My Role" />
@@ -136,19 +156,34 @@ export default function DashboardJobs() {
       {/* Status Tabs */}
       <Tabs value={statusFilter} onValueChange={setStatusFilter} className="mb-6">
         <TabsList className="bg-[#0F1117] border border-[#2A2D3E]">
-          <TabsTrigger value="all" className="data-[state=active]:bg-[#FF6633] data-[state=active]:text-white">
+          <TabsTrigger
+            value="all"
+            className="data-[state=active]:bg-[#FF6633] data-[state=active]:text-white"
+          >
             All
           </TabsTrigger>
-          <TabsTrigger value="pending" className="data-[state=active]:bg-[#FF6633] data-[state=active]:text-white">
+          <TabsTrigger
+            value="pending"
+            className="data-[state=active]:bg-[#FF6633] data-[state=active]:text-white"
+          >
             Pending
           </TabsTrigger>
-          <TabsTrigger value="funded" className="data-[state=active]:bg-[#FF6633] data-[state=active]:text-white">
+          <TabsTrigger
+            value="funded"
+            className="data-[state=active]:bg-[#FF6633] data-[state=active]:text-white"
+          >
             Funded
           </TabsTrigger>
-          <TabsTrigger value="in_progress" className="data-[state=active]:bg-[#FF6633] data-[state=active]:text-white">
+          <TabsTrigger
+            value="in_progress"
+            className="data-[state=active]:bg-[#FF6633] data-[state=active]:text-white"
+          >
             In Progress
           </TabsTrigger>
-          <TabsTrigger value="completed" className="data-[state=active]:bg-[#FF6633] data-[state=active]:text-white">
+          <TabsTrigger
+            value="completed"
+            className="data-[state=active]:bg-[#FF6633] data-[state=active]:text-white"
+          >
             Completed
           </TabsTrigger>
         </TabsList>
@@ -176,14 +211,14 @@ export default function DashboardJobs() {
           <Briefcase className="w-12 h-12 text-gray-600 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-white mb-2">No jobs found</h3>
           <p className="text-gray-500 mb-4">
-            {statusFilter !== 'all' 
-              ? `No ${statusFilter.replace('_', ' ')} jobs`
-              : profile?.user_type === 'client' 
-                ? 'Start by hiring a service provider' 
-                : 'Wait for clients to hire you'}
+            {statusFilter !== "all"
+              ? `No ${statusFilter.replace("_", " ")} jobs`
+              : profile?.user_type === "client"
+              ? "Start by hiring a service provider"
+              : "Wait for clients to hire you"}
           </p>
-          {profile?.user_type === 'client' && statusFilter === 'all' && (
-            <Link to={createPageUrl('Providers')}>
+          {profile?.user_type === "client" && statusFilter === "all" && (
+            <Link to={createPageUrl("Providers")}>
               <Button className="btn-primary">
                 <Plus className="w-4 h-4 mr-2" />
                 Find Providers

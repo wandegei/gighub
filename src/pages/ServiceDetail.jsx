@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '../utils';
-import { base44 } from '@/api/base44Client';
+import { supabase } from '@/lib/supabaseClient';
 import { 
   ChevronLeft, MapPin, Star, Phone, Calendar, Briefcase, 
   MessageSquare, Loader2, Check, CreditCard
@@ -59,58 +59,72 @@ export default function ServiceDetail() {
   }, []);
 
   const loadData = async () => {
+    setLoading(true);
     const urlParams = new URLSearchParams(window.location.search);
     const id = urlParams.get('id');
-    
-    if (!id) {
-      setLoading(false);
-      return;
-    }
+    if (!id) return setLoading(false);
 
     // Load service
-    const services = await base44.entities.Service.filter({ id });
-    if (services.length > 0) {
-      const svc = services[0];
-      setService(svc);
-      setJobForm(prev => ({ ...prev, title: svc.title, agreed_amount: svc.price?.toString() || '' }));
-      
-      // Load provider
-      const providers = await base44.entities.Profile.filter({ id: svc.provider_id });
-      if (providers.length > 0) {
-        setProvider(providers[0]);
-        
-        // Load other services from same provider
-        const providerServices = await base44.entities.Service.filter({ 
-          provider_id: svc.provider_id, 
-          is_active: true 
-        });
-        setOtherServices(providerServices.filter(s => s.id !== svc.id).slice(0, 4));
-        
-        // Load portfolio
-        const portfolioItems = await base44.entities.PortfolioItem.filter({ provider_id: svc.provider_id });
-        setPortfolio(portfolioItems.slice(0, 6));
-      }
-      
-      // Load category
-      const categories = await base44.entities.Category.filter({ id: svc.category_id });
-      if (categories.length > 0) setCategory(categories[0]);
-      
-      // Load reviews
-      const reviewsData = await base44.entities.Review.filter({ provider_id: svc.provider_id });
-      setReviews(reviewsData);
+    const { data: services } = await supabase
+      .from('services')
+      .select('*')
+      .eq('id', id)
+      .single();
+    if (!services) return setLoading(false);
+    setService(services);
+    setJobForm(prev => ({ ...prev, title: services.title, agreed_amount: services.price?.toString() || '' }));
+
+    // Load provider
+    const { data: providerData } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', services.provider_id)
+      .single();
+    if (providerData) {
+      setProvider(providerData);
+
+      // Other services
+      const { data: providerServices } = await supabase
+        .from('services')
+        .select('*')
+        .eq('provider_id', services.provider_id)
+        .eq('is_active', true);
+      setOtherServices(providerServices?.filter(s => s.id !== services.id).slice(0, 4) || []);
+
+      // Portfolio items
+      const { data: portfolioItems } = await supabase
+        .from('portfolio_items')
+        .select('*')
+        .eq('provider_id', services.provider_id);
+      setPortfolio(portfolioItems?.slice(0, 6) || []);
     }
-    
-    // Check auth
-    try {
-      const isAuth = await base44.auth.isAuthenticated();
-      if (isAuth) {
-        const userData = await base44.auth.me();
-        setUser(userData);
-        const profiles = await base44.entities.Profile.filter({ user_email: userData.email });
-        if (profiles.length > 0) setUserProfile(profiles[0]);
-      }
-    } catch (e) {}
-    
+
+    // Category
+    const { data: categories } = await supabase
+      .from('categories')
+      .select('*')
+      .eq('id', services.category_id)
+      .single();
+    if (categories) setCategory(categories);
+
+    // Reviews
+    const { data: reviewsData } = await supabase
+      .from('reviews')
+      .select('*')
+      .eq('provider_id', services.provider_id);
+    setReviews(reviewsData || []);
+
+    // Auth user
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+    if (authUser) {
+      setUser(authUser);
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('user_email', authUser.email);
+      if (profiles?.length > 0) setUserProfile(profiles[0]);
+    }
+
     setLoading(false);
   };
 
@@ -129,20 +143,30 @@ export default function ServiceDetail() {
     : null;
 
   const handleBookPackage = async () => {
+    if (!userProfile) return toast.error('User profile not found');
     setSubmitting(true);
-    
-    // Create job with package details
-    const job = await base44.entities.Job.create({
-      client_id: userProfile.id,
-      client_email: user.email,
-      provider_id: provider.id,
-      provider_email: provider.user_email,
-      title: service.title,
-      description: service.description || `Package includes: ${service.deliverables?.join(', ')}`,
-      agreed_amount: parseFloat(service.price),
-      status: 'pending'
-    });
-    
+
+    const { data: job, error } = await supabase
+      .from('jobs')
+      .insert({
+        client_id: userProfile.id,
+        client_email: user.email,
+        provider_id: provider.id,
+        provider_email: provider.user_email,
+        title: service.title,
+        description: service.description || `Package includes: ${service.deliverables?.join(', ')}`,
+        agreed_amount: parseFloat(service.price),
+        status: 'pending'
+      })
+      .select()
+      .single();
+
+    if (error) {
+      toast.error(error.message);
+      setSubmitting(false);
+      return;
+    }
+
     setCreatedJobId(job.id);
     setHireDialogOpen(false);
     setPaymentDialogOpen(true);
@@ -150,98 +174,90 @@ export default function ServiceDetail() {
   };
 
   const handlePayment = async () => {
-    if (!paymentForm.phone) {
-      toast.error('Please enter your phone number');
-      return;
+    if (!paymentForm.phone) return toast.error('Please enter your phone number');
+    setSubmitting(true);
+
+    // Get or create wallet
+    let { data: wallets } = await supabase
+      .from('wallets')
+      .select('*')
+      .eq('user_email', user.email);
+    let wallet = wallets?.[0];
+
+    if (!wallet) {
+      const { data: newWallet } = await supabase
+        .from('wallets')
+        .insert({
+          user_id: userProfile.id,
+          user_email: user.email,
+          balance: 0,
+          available_balance: 0,
+          locked_balance: 0
+        })
+        .select()
+        .single();
+      wallet = newWallet;
     }
 
-    setSubmitting(true);
-    
-    // Get or create wallet
-    let wallets = await base44.entities.Wallet.filter({ user_email: user.email });
-    let wallet;
-    
-    if (wallets.length === 0) {
-      wallet = await base44.entities.Wallet.create({
-        user_id: userProfile.id,
-        user_email: user.email,
-        balance: 0,
-        available_balance: 0,
-        locked_balance: 0
-      });
-    } else {
-      wallet = wallets[0];
-    }
-    
-    // Simulate mobile money payment - in production this would call actual payment API
     const amount = parseFloat(service.price);
-    
-    // Update wallet - add to balance and lock immediately for escrow
-    await base44.entities.Wallet.update(wallet.id, {
-      balance: (wallet.balance || 0) + amount,
-      available_balance: wallet.available_balance || 0,
-      locked_balance: (wallet.locked_balance || 0) + amount
-    });
-    
-    // Update job status to funded
-    await base44.entities.Job.update(createdJobId, { status: 'funded' });
-    
-    // Create transaction record
-    await base44.entities.Transaction.create({
-      job_id: createdJobId,
-      from_wallet_id: wallet.id,
-      from_email: user.email,
-      amount: amount,
-      type: 'escrow_lock',
-      description: `${paymentForm.method.toUpperCase()} payment for: ${service.title}`,
-      status: 'completed'
-    });
-    
+
+    // Update wallet
+    await supabase
+      .from('wallets')
+      .update({
+        balance: (wallet.balance || 0) + amount,
+        available_balance: wallet.available_balance || 0,
+        locked_balance: (wallet.locked_balance || 0) + amount
+      })
+      .eq('id', wallet.id);
+
+    // Update job status
+    await supabase
+      .from('jobs')
+      .update({ status: 'funded' })
+      .eq('id', createdJobId);
+
+    // Create transaction
+    await supabase
+      .from('transactions')
+      .insert({
+        job_id: createdJobId,
+        from_wallet_id: wallet.id,
+        from_email: user.email,
+        amount,
+        type: 'escrow_lock',
+        description: `${paymentForm.method.toUpperCase()} payment for: ${service.title}`,
+        status: 'completed'
+      });
+
     // Notify provider
-    await base44.entities.Notification.create({
-      user_email: provider.user_email,
-      title: 'New Booking!',
-      message: `${userProfile.full_name} booked your "${service.title}" package (${formatAmount(amount)})`,
-      type: 'job',
-      link: `JobDetail?id=${createdJobId}`
-    });
-    
+    await supabase
+      .from('notifications')
+      .insert({
+        user_email: provider.user_email,
+        title: 'New Booking!',
+        message: `${userProfile.full_name} booked your "${service.title}" package (${formatAmount(amount)})`,
+        type: 'job',
+        link: `JobDetail?id=${createdJobId}`
+      });
+
     toast.success('Payment successful! Job funded in escrow.');
     setPaymentDialogOpen(false);
     setSubmitting(false);
     window.location.href = createPageUrl(`JobDetail?id=${createdJobId}`);
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen py-8 lg:py-12">
-        <div className="max-w-5xl mx-auto px-4 animate-pulse">
-          <div className="h-6 bg-[#2A2D3E] rounded w-32 mb-6" />
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div className="lg:col-span-2 space-y-6">
-              <div className="aspect-video bg-[#2A2D3E] rounded-xl" />
-              <div className="h-8 bg-[#2A2D3E] rounded w-3/4" />
-              <div className="h-32 bg-[#2A2D3E] rounded" />
-            </div>
-            <div className="h-96 bg-[#2A2D3E] rounded-xl" />
-          </div>
-        </div>
+  if (loading) return <div className="min-h-screen py-8 lg:py-12">Loading...</div>;
+  if (!service) return (
+    <div className="min-h-screen py-8 lg:py-12 flex items-center justify-center">
+      <div className="card-dark p-12 text-center max-w-md">
+        <h3 className="text-lg font-medium text-white mb-2">Service not found</h3>
+        <Link to={createPageUrl('Discover')}>
+          <Button className="btn-primary mt-4">Browse Services</Button>
+        </Link>
       </div>
-    );
-  }
-
-  if (!service) {
-    return (
-      <div className="min-h-screen py-8 lg:py-12 flex items-center justify-center">
-        <div className="card-dark p-12 text-center max-w-md">
-          <h3 className="text-lg font-medium text-white mb-2">Service not found</h3>
-          <Link to={createPageUrl('Discover')}>
-            <Button className="btn-primary mt-4">Browse Services</Button>
-          </Link>
-        </div>
-      </div>
-    );
-  }
+    </div>
+  );
 
   return (
     <div className="min-h-screen py-8 lg:py-12">
@@ -364,7 +380,7 @@ export default function ServiceDetail() {
                   <p className="text-gray-500 text-sm text-center mb-4">Switch to client account to book</p>
                 )
               ) : (
-                <Button onClick={() => base44.auth.redirectToLogin()} className="btn-primary w-full mb-4">
+                <Button onClick={() => supabase.auth.signInWithOAuth({ provider: 'google' })} className="btn-primary w-full mb-4">
                   Sign in to Book
                 </Button>
               )}
@@ -521,7 +537,7 @@ export default function ServiceDetail() {
                         <span className="text-xs font-bold text-black">M</span>
                       </div>
                       MTN Mobile Money
-                    </div>
+                    </div> base44
                   </SelectItem>
                   <SelectItem value="airtel">
                     <div className="flex items-center gap-2">

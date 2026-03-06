@@ -1,32 +1,42 @@
-import React, { useState, useEffect } from 'react';
-import { base44 } from '@/api/base44Client';
-import { Search, SlidersHorizontal } from 'lucide-react';
-import { Input } from '@/components/ui/input';
-import CategoryGrid from '../components/categories/CategoryGrid';
+import { useState, useEffect } from "react";
+import { supabase } from "../lib/supabaseClient";
+import { Search } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import CategoryGrid from "../components/categories/CategoryGrid";
 
 export default function Categories() {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
+    // Initialize search query from URL
     const urlParams = new URLSearchParams(window.location.search);
-    const search = urlParams.get('search');
-    if (search) {
-      setSearchQuery(search);
-    }
+    const search = urlParams.get("search");
+    if (search) setSearchQuery(search);
+
     loadCategories();
   }, []);
 
   const loadCategories = async () => {
-    const data = await base44.entities.Category.list('-created_date');
-    setCategories(data);
+    const { data, error } = await supabase
+      .from("categories")         // Your Supabase table
+      .select("*")
+      .order("created_at", { ascending: false }); // Sorting by newest
+
+    if (error) {
+      console.error("Failed to fetch categories:", error);
+    } else {
+      setCategories(data || []);
+    }
+
     setLoading(false);
   };
 
-  const filteredCategories = categories.filter(cat =>
-    cat.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    cat.description?.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredCategories = categories.filter(
+    (cat) =>
+      cat.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      cat.description?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
@@ -34,8 +44,12 @@ export default function Categories() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-10">
-          <h1 className="text-3xl sm:text-4xl font-bold text-white mb-3">Service Categories</h1>
-          <p className="text-gray-500 text-lg">Find the right professional for your needs</p>
+          <h1 className="text-3xl sm:text-4xl font-bold text-white mb-3">
+            Service Categories
+          </h1>
+          <p className="text-gray-500 text-lg">
+            Find the right professional for your needs
+          </p>
         </div>
 
         {/* Search */}
@@ -54,7 +68,8 @@ export default function Categories() {
         {/* Results Count */}
         {!loading && (
           <p className="text-gray-500 mb-6">
-            Showing {filteredCategories.length} {filteredCategories.length === 1 ? 'category' : 'categories'}
+            Showing {filteredCategories.length}{" "}
+            {filteredCategories.length === 1 ? "category" : "categories"}
             {searchQuery && ` for "${searchQuery}"`}
           </p>
         )}

@@ -1,14 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { createPageUrl } from '../../utils';
-import { base44 } from '@/api/base44Client';
-import { Star, Shield, Award } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
+import React, { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
+import { createPageUrl } from "../../utils";
+import { supabase } from "../../lib/supabaseClient";
+import { Star, Shield, Award } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 export default function FeaturedProviders() {
   const [providers, setProviders] = useState([]);
-  const [reviews, setReviews] = useState([]);
-  const [verifications, setVerifications] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -16,31 +14,69 @@ export default function FeaturedProviders() {
   }, []);
 
   const loadData = async () => {
-    const [providersData, reviewsData, verificationsData] = await Promise.all([
-      base44.entities.Profile.filter({ user_type: 'provider' }),
-      base44.entities.Review.list('-created_date'),
-      base44.entities.Verification.filter({ status: 'verified' })
-    ]);
+    try {
+      setLoading(true);
 
-    // Calculate ratings and sort
-    const providersWithRatings = providersData.map(provider => {
-      const providerReviews = reviewsData.filter(r => r.provider_id === provider.id);
-      const avgRating = providerReviews.length > 0
-        ? providerReviews.reduce((sum, r) => sum + r.rating, 0) / providerReviews.length
-        : 0;
-      const isVerified = verificationsData.some(v => v.provider_id === provider.id);
-      
-      return { ...provider, avgRating, reviewCount: providerReviews.length, isVerified };
-    });
+      // Fetch providers
+      const { data: providersData, error: providersError } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("user_type", "provider");
 
-    // Featured = verified + rating >= 4.5 OR top 6 by rating
-    const featured = providersWithRatings
-      .filter(p => p.isVerified && p.avgRating >= 4.5 && p.reviewCount >= 3)
-      .sort((a, b) => b.avgRating - a.avgRating)
-      .slice(0, 6);
+      if (providersError) throw providersError;
 
-    setProviders(featured);
-    setLoading(false);
+      // Fetch reviews
+      const { data: reviewsData, error: reviewsError } = await supabase
+        .from("reviews")
+        .select("*");
+
+      if (reviewsError) throw reviewsError;
+
+      // Fetch verifications
+      const { data: verificationsData, error: verificationsError } =
+        await supabase
+          .from("verifications")
+          .select("*")
+          .eq("status", "verified");
+
+      if (verificationsError) throw verificationsError;
+
+      // Calculate ratings
+      const providersWithRatings = providersData.map((provider) => {
+        const providerReviews = reviewsData.filter(
+          (r) => r.provider_id === provider.id
+        );
+
+        const avgRating =
+          providerReviews.length > 0
+            ? providerReviews.reduce((sum, r) => sum + r.rating, 0) /
+              providerReviews.length
+            : 0;
+
+        const isVerified = verificationsData.some(
+          (v) => v.provider_id === provider.id
+        );
+
+        return {
+          ...provider,
+          avgRating,
+          reviewCount: providerReviews.length,
+          isVerified,
+        };
+      });
+
+      // Featured providers logic
+      const featured = providersWithRatings
+        .filter((p) => p.isVerified && p.avgRating >= 4.5 && p.reviewCount >= 3)
+        .sort((a, b) => b.avgRating - a.avgRating)
+        .slice(0, 6);
+
+      setProviders(featured);
+    } catch (error) {
+      console.error("Error loading featured providers:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (loading) {
@@ -76,27 +112,28 @@ export default function FeaturedProviders() {
         >
           <div className="absolute top-4 right-4">
             <Badge className="bg-gradient-to-r from-[#FF6B3D] to-[#FF5722]">
-              <Award className="w-3 h-3 mr-1" style={{ color: 'black' }} />
-              <span style={{ color: 'black' }}>Featured</span>
+              <Award className="w-3 h-3 mr-1" style={{ color: "black" }} />
+              <span style={{ color: "black" }}>Featured</span>
             </Badge>
           </div>
 
           <div className="relative mb-4">
             <div className="w-24 h-24 rounded-full mx-auto overflow-hidden border-4 border-[#FF6B3D]">
               {provider.profile_image_url ? (
-                <img 
-                  src={provider.profile_image_url} 
+                <img
+                  src={provider.profile_image_url}
                   alt={provider.full_name}
                   className="w-full h-full object-cover"
                 />
               ) : (
                 <div className="w-full h-full bg-gradient-to-br from-[#FF6B3D] to-[#FF5722] flex items-center justify-center">
-                  <span className="text-2xl font-bold" style={{ color: 'black' }}>
+                  <span className="text-2xl font-bold" style={{ color: "black" }}>
                     {provider.full_name?.charAt(0)}
                   </span>
                 </div>
               )}
             </div>
+
             {provider.isVerified && (
               <div className="absolute bottom-0 right-1/2 translate-x-1/2 translate-y-2">
                 <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center border-2 border-[#0A0E1A]">
@@ -118,8 +155,12 @@ export default function FeaturedProviders() {
 
           <div className="flex items-center justify-center gap-1 mb-2">
             <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-            <span className="font-semibold text-white">{provider.avgRating.toFixed(1)}</span>
-            <span className="text-sm text-gray-500">({provider.reviewCount} reviews)</span>
+            <span className="font-semibold text-white">
+              {provider.avgRating.toFixed(1)}
+            </span>
+            <span className="text-sm text-gray-500">
+              ({provider.reviewCount} reviews)
+            </span>
           </div>
 
           {provider.location && (

@@ -1,13 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { base44 } from '@/api/base44Client';
+import React, { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabaseClient";
 import { 
   Plus, Briefcase, Edit2, Trash2, Eye, EyeOff, Loader2, Upload, X, Search 
-} from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -32,7 +32,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { toast } from 'sonner';
+import { toast } from "sonner";
 
 export default function DashboardServices() {
   const [user, setUser] = useState(null);
@@ -45,37 +45,52 @@ export default function DashboardServices() {
   const [selectedService, setSelectedService] = useState(null);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  
+  const [searchQuery, setSearchQuery] = useState("");
+
   const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    category_id: '',
-    price: '',
-    price_type: 'fixed',
-    delivery_days: '',
+    title: "",
+    description: "",
+    category_id: "",
+    price: "",
+    price_type: "fixed",
+    delivery_days: "",
     deliverables: [],
-    image_url: ''
+    image_url: "",
   });
-  const [newDeliverable, setNewDeliverable] = useState('');
+  const [newDeliverable, setNewDeliverable] = useState("");
 
   useEffect(() => {
     loadData();
   }, []);
 
   const loadData = async () => {
-    const userData = await base44.auth.me();
+    const { data: { user: userData } } = await supabase.auth.getUser();
+    if (!userData) return;
     setUser(userData);
-    
-    const profiles = await base44.entities.Profile.filter({ user_email: userData.email });
-    if (profiles.length > 0) {
+
+    // Load profile
+    const { data: profiles } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("user_email", userData.email)
+      .limit(1);
+    if (profiles?.length > 0) {
       setProfile(profiles[0]);
-      const svcs = await base44.entities.Service.filter({ provider_id: profiles[0].id });
-      setServices(svcs);
+
+      // Load services
+      const { data: svcs } = await supabase
+        .from("services")
+        .select("*")
+        .eq("provider_id", profiles[0].id);
+      setServices(svcs || []);
     }
-    
-    const cats = await base44.entities.Category.list('name');
-    setCategories(cats);
+
+    // Load categories
+    const { data: cats } = await supabase
+      .from("categories")
+      .select("*")
+      .order("name", { ascending: true });
+    setCategories(cats || []);
     setLoading(false);
   };
 
@@ -83,10 +98,25 @@ export default function DashboardServices() {
     const file = e.target.files?.[0];
     if (!file) return;
     setUploading(true);
-    const { file_url } = await base44.integrations.Core.UploadFile({ file });
-    setFormData(prev => ({ ...prev, image_url: file_url }));
+
+    const fileName = `${Date.now()}_${file.name}`;
+    const { error } = await supabase.storage
+      .from("service-images")
+      .upload(fileName, file);
+
+    if (error) {
+      toast.error("Image upload failed");
+      setUploading(false);
+      return;
+    }
+
+    const { data: publicUrlData } = supabase.storage
+      .from("service-images")
+      .getPublicUrl(fileName);
+
+    setFormData(prev => ({ ...prev, image_url: publicUrlData.publicUrl }));
     setUploading(false);
-    toast.success('Image uploaded');
+    toast.success("Image uploaded");
   };
 
   const openDialog = (service = null) => {
@@ -94,45 +124,54 @@ export default function DashboardServices() {
       setSelectedService(service);
       setFormData({
         title: service.title,
-        description: service.description || '',
+        description: service.description || "",
         category_id: service.category_id,
-        price: service.price?.toString() || '',
-        price_type: service.price_type || 'fixed',
-        delivery_days: service.delivery_days?.toString() || '',
+        price: service.price?.toString() || "",
+        price_type: service.price_type || "fixed",
+        delivery_days: service.delivery_days?.toString() || "",
         deliverables: service.deliverables || [],
-        image_url: service.image_url || ''
+        image_url: service.image_url || "",
       });
     } else {
       setSelectedService(null);
-      setFormData({ title: '', description: '', category_id: '', price: '', price_type: 'fixed', delivery_days: '', deliverables: [], image_url: '' });
+      setFormData({
+        title: "",
+        description: "",
+        category_id: "",
+        price: "",
+        price_type: "fixed",
+        delivery_days: "",
+        deliverables: [],
+        image_url: "",
+      });
     }
     setDialogOpen(true);
   };
 
   const handleSave = async () => {
     if (!formData.title || !formData.category_id || !formData.price || !formData.delivery_days) {
-      toast.error('Please fill in all required fields');
+      toast.error("Please fill in all required fields");
       return;
     }
     setSaving(true);
-    
+
     const data = {
       ...formData,
       price: parseFloat(formData.price),
       delivery_days: parseInt(formData.delivery_days),
       provider_id: profile.id,
       provider_email: user.email,
-      is_active: true
+      is_active: true,
     };
-    
+
     if (selectedService) {
-      await base44.entities.Service.update(selectedService.id, data);
-      toast.success('Service package updated');
+      await supabase.from("services").update(data).eq("id", selectedService.id);
+      toast.success("Service package updated");
     } else {
-      await base44.entities.Service.create(data);
-      toast.success('Service package created');
+      await supabase.from("services").insert(data);
+      toast.success("Service package created");
     }
-    
+
     setDialogOpen(false);
     setSaving(false);
     loadData();
@@ -140,27 +179,27 @@ export default function DashboardServices() {
 
   const handleDelete = async () => {
     if (!selectedService) return;
-    await base44.entities.Service.delete(selectedService.id);
-    toast.success('Service deleted');
+    await supabase.from("services").delete().eq("id", selectedService.id);
+    toast.success("Service deleted");
     setDeleteDialogOpen(false);
     setSelectedService(null);
     loadData();
   };
 
   const toggleActive = async (service) => {
-    await base44.entities.Service.update(service.id, { is_active: !service.is_active });
-    toast.success(service.is_active ? 'Service hidden' : 'Service visible');
+    await supabase.from("services").update({ is_active: !service.is_active }).eq("id", service.id);
+    toast.success(service.is_active ? "Service hidden" : "Service visible");
     loadData();
   };
 
   const formatAmount = (amount) => {
-    if (!amount) return 'Negotiable';
-    return new Intl.NumberFormat('en-UG', { style: 'currency', currency: 'UGX', minimumFractionDigits: 0 }).format(amount);
+    if (!amount) return "Negotiable";
+    return new Intl.NumberFormat("en-UG", { style: "currency", currency: "UGX", minimumFractionDigits: 0 }).format(amount);
   };
 
   const getCategory = (id) => categories.find(c => c.id === id);
 
-  const filteredServices = services.filter(s => 
+  const filteredServices = services.filter(s =>
     s.title?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -180,7 +219,7 @@ export default function DashboardServices() {
     );
   }
 
-  if (!profile || profile.user_type !== 'provider') {
+  if (!profile || profile.user_type !== "provider") {
     return (
       <div className="p-6 lg:p-8 flex items-center justify-center min-h-[60vh]">
         <div className="card-dark p-12 text-center max-w-md">
@@ -194,6 +233,7 @@ export default function DashboardServices() {
 
   return (
     <div className="p-6 lg:p-8">
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div>
           <h1 className="text-2xl lg:text-3xl font-bold text-white mb-2">Service Packages</h1>
@@ -222,7 +262,7 @@ export default function DashboardServices() {
           {filteredServices.map(service => {
             const category = getCategory(service.category_id);
             return (
-              <div key={service.id} className={`card-dark overflow-hidden ${!service.is_active ? 'opacity-60' : ''}`}>
+              <div key={service.id} className={`card-dark overflow-hidden ${!service.is_active ? "opacity-60" : ""}`}>
                 <div className="aspect-video relative bg-[#0F1117]">
                   {service.image_url ? (
                     <img src={service.image_url} alt={service.title} className="w-full h-full object-cover" />
@@ -247,7 +287,7 @@ export default function DashboardServices() {
                     </Button>
                     <Button size="sm" variant="ghost" onClick={() => toggleActive(service)} className="flex-1 text-gray-400 hover:text-white">
                       {service.is_active ? <EyeOff className="w-4 h-4 mr-1" /> : <Eye className="w-4 h-4 mr-1" />}
-                      {service.is_active ? 'Hide' : 'Show'}
+                      {service.is_active ? "Hide" : "Show"}
                     </Button>
                     <Button size="sm" variant="ghost" onClick={() => { setSelectedService(service); setDeleteDialogOpen(true); }} className="text-red-400 hover:text-red-300">
                       <Trash2 className="w-4 h-4" />
@@ -270,13 +310,15 @@ export default function DashboardServices() {
         </div>
       )}
 
+      {/* Dialogs */}
       {/* Add/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="bg-[#1A1D2E] border-[#2A2D3E] max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="text-white">{selectedService ? 'Edit Service Package' : 'Create Service Package'}</DialogTitle>
+            <DialogTitle className="text-white">{selectedService ? "Edit Service Package" : "Create Service Package"}</DialogTitle>
             <DialogDescription className="text-gray-500">Define your service package with clear deliverables</DialogDescription>
           </DialogHeader>
+          {/* Form UI remains unchanged */}
           <div className="space-y-4 mt-4">
             <div>
               <Label className="text-gray-400 mb-2 block">Service Title *</Label>

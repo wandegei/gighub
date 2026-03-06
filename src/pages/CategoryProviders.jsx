@@ -1,18 +1,17 @@
-import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { createPageUrl } from '../utils';
-import { base44 } from '@/api/base44Client';
-import { Search, ChevronLeft, MapPin, SlidersHorizontal } from 'lucide-react';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import ProviderGrid from '../components/providers/ProviderGrid';
+import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
+import { createPageUrl } from "../utils";
+import { supabase } from "../lib/supabaseClient";
+import { Search, ChevronLeft, MapPin } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import ProviderGrid from "../components/providers/ProviderGrid";
 
 export default function CategoryProviders() {
   const [category, setCategory] = useState(null);
   const [providers, setProviders] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [locationFilter, setLocationFilter] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
+  const [locationFilter, setLocationFilter] = useState("");
 
   useEffect(() => {
     loadData();
@@ -20,38 +19,69 @@ export default function CategoryProviders() {
 
   const loadData = async () => {
     const urlParams = new URLSearchParams(window.location.search);
-    const slug = urlParams.get('slug');
-    
+    const slug = urlParams.get("slug");
+
     if (!slug) {
       setLoading(false);
       return;
     }
 
-    // Load category
-    const categories = await base44.entities.Category.filter({ slug });
-    if (categories.length > 0) {
+    // Load category by slug
+    const { data: categories, error: catError } = await supabase
+      .from("categories")
+      .select("*")
+      .eq("slug", slug);
+
+    if (catError) {
+      console.error("Error fetching category:", catError);
+      setLoading(false);
+      return;
+    }
+
+    if (categories?.length > 0) {
       setCategory(categories[0]);
-      
+
       // Load provider-category relations
-      const relations = await base44.entities.ProviderCategory.filter({ category_id: categories[0].id });
-      const providerIds = relations.map(r => r.provider_id);
-      
-      // Load provider profiles
+      const { data: relations, error: relError } = await supabase
+        .from("provider_categories")
+        .select("provider_id")
+        .eq("category_id", categories[0].id);
+
+      if (relError) {
+        console.error("Error fetching provider relations:", relError);
+        setLoading(false);
+        return;
+      }
+
+      const providerIds = relations.map((r) => r.provider_id);
+
       if (providerIds.length > 0) {
-        const allProviders = await base44.entities.Profile.filter({ user_type: 'provider' });
-        const categoryProviders = allProviders.filter(p => providerIds.includes(p.id));
-        setProviders(categoryProviders);
+        const { data: allProviders, error: provError } = await supabase
+          .from("profiles")
+          .select("*")
+          .in("id", providerIds)
+          .eq("user_type", "provider");
+
+        if (provError) {
+          console.error("Error fetching providers:", provError);
+        } else {
+          setProviders(allProviders || []);
+        }
       }
     }
-    
+
     setLoading(false);
   };
 
-  const filteredProviders = providers.filter(provider => {
-    const matchesSearch = provider.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          provider.bio?.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesLocation = !locationFilter || 
-                            provider.location?.toLowerCase().includes(locationFilter.toLowerCase());
+  const filteredProviders = providers.filter((provider) => {
+    const matchesSearch =
+      provider.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      provider.bio?.toLowerCase().includes(searchQuery.toLowerCase());
+
+    const matchesLocation =
+      !locationFilter ||
+      provider.location?.toLowerCase().includes(locationFilter.toLowerCase());
+
     return matchesSearch && matchesLocation;
   });
 
@@ -59,8 +89,8 @@ export default function CategoryProviders() {
     <div className="min-h-screen py-8 lg:py-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Back Link */}
-        <Link 
-          to={createPageUrl('Categories')}
+        <Link
+          to={createPageUrl("Categories")}
           className="inline-flex items-center gap-2 text-gray-400 hover:text-white mb-6 transition-colors"
         >
           <ChevronLeft className="w-4 h-4" />
@@ -71,13 +101,17 @@ export default function CategoryProviders() {
         <div className="mb-10">
           {category ? (
             <>
-              <h1 className="text-3xl sm:text-4xl font-bold text-white mb-3">{category.name}</h1>
+              <h1 className="text-3xl sm:text-4xl font-bold text-white mb-3">
+                {category.name}
+              </h1>
               {category.description && (
                 <p className="text-gray-500 text-lg">{category.description}</p>
               )}
             </>
           ) : (
-            <h1 className="text-3xl sm:text-4xl font-bold text-white mb-3">Providers</h1>
+            <h1 className="text-3xl sm:text-4xl font-bold text-white mb-3">
+              Providers
+            </h1>
           )}
         </div>
 
@@ -106,7 +140,8 @@ export default function CategoryProviders() {
         {/* Results Count */}
         {!loading && (
           <p className="text-gray-500 mb-6">
-            {filteredProviders.length} {filteredProviders.length === 1 ? 'provider' : 'providers'} found
+            {filteredProviders.length}{" "}
+            {filteredProviders.length === 1 ? "provider" : "providers"} found
             {searchQuery && ` for "${searchQuery}"`}
             {locationFilter && ` in "${locationFilter}"`}
           </p>

@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '../utils';
-import { base44 } from '@/api/base44Client';
+import { supabase } from '@/lib/supabaseClient'; // Make sure you have Supabase client setup
 import { 
   ChevronLeft, 
   MapPin, 
   Phone, 
-  Mail, 
   Star, 
   Briefcase,
   Image as ImageIcon,
@@ -24,7 +23,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -56,62 +54,84 @@ export default function ProviderProfile() {
   const loadData = async () => {
     const urlParams = new URLSearchParams(window.location.search);
     const id = urlParams.get('id');
-    
+
     if (!id) {
       setLoading(false);
       return;
     }
 
-    // Load provider
-    const profiles = await base44.entities.Profile.filter({ id });
-    if (profiles.length > 0) {
-      setProvider(profiles[0]);
-      
-      // Load portfolio
-      const portfolioItems = await base44.entities.PortfolioItem.filter({ provider_id: id });
-      setPortfolio(portfolioItems);
-      
-      // Load categories
-      const relations = await base44.entities.ProviderCategory.filter({ provider_id: id });
-      if (relations.length > 0) {
-        const allCategories = await base44.entities.Category.list();
-        const providerCategories = allCategories.filter(c => 
-          relations.some(r => r.category_id === c.id)
-        );
-        setCategories(providerCategories);
-      }
-      
-      // Load reviews
-      const reviewsData = await base44.entities.Review.filter({ provider_id: id });
-      setReviews(reviewsData);
-      
-      // Load services
-      const servicesData = await base44.entities.Service.filter({ provider_id: id, is_active: true });
-      setServices(servicesData);
-      
-      // Load skills
-      const skillsData = await base44.entities.Skill.filter({ provider_id: id });
-      setSkills(skillsData);
-      
-      // Load verifications
-      const verificationsData = await base44.entities.Verification.filter({ 
-        provider_id: id, 
-        status: 'verified' 
-      });
-      setVerifications(verificationsData);
-    }
-    
-    // Check if user is logged in
     try {
-      const isAuth = await base44.auth.isAuthenticated();
-      if (isAuth) {
-        const userData = await base44.auth.me();
-        setUser(userData);
+      // Fetch provider
+      let { data: profiles } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (profiles) {
+        setProvider(profiles);
+
+        // Portfolio
+        let { data: portfolioItems } = await supabase
+          .from('portfolio_items')
+          .select('*')
+          .eq('provider_id', id);
+        setPortfolio(portfolioItems || []);
+
+        // Categories
+        let { data: relations } = await supabase
+          .from('provider_categories')
+          .select('*')
+          .eq('provider_id', id);
+        if (relations?.length > 0) {
+          let { data: allCategories } = await supabase
+            .from('categories')
+            .select('*');
+          const providerCategories = allCategories.filter(c =>
+            relations.some(r => r.category_id === c.id)
+          );
+          setCategories(providerCategories);
+        }
+
+        // Reviews
+        let { data: reviewsData } = await supabase
+          .from('reviews')
+          .select('*')
+          .eq('provider_id', id);
+        setReviews(reviewsData || []);
+
+        // Services
+        let { data: servicesData } = await supabase
+          .from('services')
+          .select('*')
+          .eq('provider_id', id)
+          .eq('is_active', true);
+        setServices(servicesData || []);
+
+        // Skills
+        let { data: skillsData } = await supabase
+          .from('skills')
+          .select('*')
+          .eq('provider_id', id);
+        setSkills(skillsData || []);
+
+        // Verifications
+        let { data: verificationsData } = await supabase
+          .from('verifications')
+          .select('*')
+          .eq('provider_id', id)
+          .eq('status', 'verified');
+        setVerifications(verificationsData || []);
       }
-    } catch (e) {
-      console.log('Not authenticated');
+
+      // Current logged-in user
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (currentUser) setUser(currentUser);
+
+    } catch (error) {
+      console.error('Error loading provider data:', error);
     }
-    
+
     setLoading(false);
   };
 
@@ -122,31 +142,42 @@ export default function ProviderProfile() {
     }
 
     setSubmitting(true);
-    
-    // Get user profile
-    const profiles = await base44.entities.Profile.filter({ user_email: user.email });
-    if (profiles.length === 0) {
-      toast.error('Please complete your profile first');
-      setSubmitting(false);
-      return;
+
+    try {
+      // Fetch client profile
+      let { data: userProfile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('user_email', user.email)
+        .single();
+
+      if (!userProfile) {
+        toast.error('Please complete your profile first');
+        setSubmitting(false);
+        return;
+      }
+
+      // Create job
+      await supabase.from('jobs').insert({
+        client_id: userProfile.id,
+        client_email: user.email,
+        provider_id: provider.id,
+        provider_email: provider.user_email,
+        title: jobForm.title,
+        description: jobForm.description,
+        agreed_amount: parseFloat(jobForm.agreed_amount),
+        status: 'pending'
+      });
+
+      toast.success('Job created! Fund it to proceed.');
+      setHireDialogOpen(false);
+      setJobForm({ title: '', description: '', agreed_amount: '' });
+
+    } catch (error) {
+      console.error('Error creating job:', error);
+      toast.error('Failed to create job');
     }
-    const userProfile = profiles[0];
-    
-    // Create job
-    await base44.entities.Job.create({
-      client_id: userProfile.id,
-      client_email: user.email,
-      provider_id: provider.id,
-      provider_email: provider.user_email,
-      title: jobForm.title,
-      description: jobForm.description,
-      agreed_amount: parseFloat(jobForm.agreed_amount),
-      status: 'pending'
-    });
-    
-    toast.success('Job created! Fund it to proceed.');
-    setHireDialogOpen(false);
-    setJobForm({ title: '', description: '', agreed_amount: '' });
+
     setSubmitting(false);
   };
 
@@ -360,12 +391,19 @@ export default function ProviderProfile() {
                   </Dialog>
                 ) : (
                   <Button 
-                    onClick={() => base44.auth.redirectToLogin()}
-                    className="btn-primary"
-                  >
-                    <Briefcase className="w-4 h-4 mr-2" />
-                    Sign in to Hire
-                  </Button>
+                  onClick={async () => {
+                    // Redirect to Supabase login page
+                    const { error } = await supabase.auth.signInWithOAuth({
+                      provider: 'google', // or 'github', 'facebook', etc.
+                      options: { redirectTo: window.location.href } // optional: redirect back after login
+                    });
+                    if (error) toast.error(error.message);
+                  }}
+                  className="btn-primary"
+                >
+                  <Briefcase className="w-4 h-4 mr-2" />
+                  Sign in to Hire
+                </Button>
                 )}
                 
                 {provider.phone_number && (

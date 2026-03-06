@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '../utils';
-import { base44 } from '@/api/base44Client';
-import { MapPin, Star, Phone, Navigation } from 'lucide-react';
+import { supabase } from "@/lib/supabaseClient";
+import { MapPin, Star, Navigation } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -20,11 +20,11 @@ L.Icon.Default.mergeOptions({
 
 function LocationMarker({ position, setPosition }) {
   const map = useMap();
-  
+
   useEffect(() => {
     map.flyTo(position, 13);
   }, [position, map]);
-  
+
   return null;
 }
 
@@ -42,17 +42,36 @@ export default function MapSearch() {
   }, []);
 
   const loadData = async () => {
-    const [providersData, reviewsData, categoriesData, verificationsData] = await Promise.all([
-      base44.entities.Profile.filter({ user_type: 'provider' }),
-      base44.entities.Review.list('-created_date'),
-      base44.entities.Category.list('name'),
-      base44.entities.Verification.filter({ status: 'verified' })
-    ]);
-    
-    setProviders(providersData);
-    setReviews(reviewsData);
-    setCategories(categoriesData);
-    setVerifications(verificationsData);
+    setLoading(true);
+
+    // Fetch providers
+    const { data: providersData } = await supabase
+      .from('Profile')
+      .select('*')
+      .eq('user_type', 'provider');
+
+    // Fetch reviews
+    const { data: reviewsData } = await supabase
+      .from('Review')
+      .select('*')
+      .order('created_date', { ascending: false });
+
+    // Fetch categories
+    const { data: categoriesData } = await supabase
+      .from('Category')
+      .select('*')
+      .order('name', { ascending: true });
+
+    // Fetch verifications
+    const { data: verificationsData } = await supabase
+      .from('Verification')
+      .select('*')
+      .eq('status', 'verified');
+
+    setProviders(providersData || []);
+    setReviews(reviewsData || []);
+    setCategories(categoriesData || []);
+    setVerifications(verificationsData || []);
     setLoading(false);
   };
 
@@ -67,7 +86,7 @@ export default function MapSearch() {
     return verifications.some(v => v.provider_id === providerId);
   };
 
-  // Mock locations for demo (in production, use real coordinates)
+  // Mock locations for demo (replace with real coordinates in production)
   const getProviderLocation = (index) => {
     const locations = [
       [0.3476, 32.5825], // Kampala
@@ -80,7 +99,6 @@ export default function MapSearch() {
   };
 
   const handleLocationSearch = () => {
-    // In production, use geocoding API
     if (searchLocation.toLowerCase().includes('kampala')) {
       setMapCenter([0.3476, 32.5825]);
     } else if (searchLocation.toLowerCase().includes('nakawa')) {
@@ -112,9 +130,9 @@ export default function MapSearch() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2">
             <div className="card-dark p-2 rounded-xl overflow-hidden" style={{ height: '600px' }}>
-              <MapContainer 
-                center={mapCenter} 
-                zoom={13} 
+              <MapContainer
+                center={mapCenter}
+                zoom={13}
                 style={{ height: '100%', width: '100%', borderRadius: '12px' }}
               >
                 <TileLayer
@@ -122,12 +140,12 @@ export default function MapSearch() {
                   attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                 />
                 <LocationMarker position={mapCenter} setPosition={setMapCenter} />
-                
+
                 {providers.map((provider, index) => {
                   const location = getProviderLocation(index);
                   const rating = getProviderRating(provider.id);
                   const verified = isVerified(provider.id);
-                  
+
                   return (
                     <Marker key={provider.id} position={location}>
                       <Popup>
@@ -162,7 +180,7 @@ export default function MapSearch() {
                 {providers.slice(0, 10).map((provider) => {
                   const rating = getProviderRating(provider.id);
                   const verified = isVerified(provider.id);
-                  
+
                   return (
                     <Link
                       key={provider.id}

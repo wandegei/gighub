@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { createPageUrl } from '../utils';
-import { base44 } from '@/api/base44Client';
-import { Search, MapPin, Star, Filter, Grid, List, ChevronRight, Briefcase } from 'lucide-react';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import React, { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
+import { createPageUrl } from "../utils";
+import { supabase } from "@/lib/supabaseClient";
+import { Search, MapPin, Star, Grid, List, Briefcase } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -19,15 +19,16 @@ export default function Discover() {
   const [categories, setCategories] = useState([]);
   const [providers, setProviders] = useState([]);
   const [reviews, setReviews] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('all');
-  const [locationFilter, setLocationFilter] = useState('');
-  const [priceSort, setPriceSort] = useState('none');
-  const [viewMode, setViewMode] = useState('grid');
-  const [ratingFilter, setRatingFilter] = useState('all');
   const [skills, setSkills] = useState([]);
   const [recommendedServices, setRecommendedServices] = useState([]);
+
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [locationFilter, setLocationFilter] = useState("");
+  const [priceSort, setPriceSort] = useState("none");
+  const [viewMode, setViewMode] = useState("grid");
+  const [ratingFilter, setRatingFilter] = useState("all");
 
   useEffect(() => {
     loadData();
@@ -35,36 +36,37 @@ export default function Discover() {
 
   const loadData = async () => {
     const [servicesData, categoriesData, providersData, reviewsData, skillsData] = await Promise.all([
-      base44.entities.Service.filter({ is_active: true }, '-created_date'),
-      base44.entities.Category.list('name'),
-      base44.entities.Profile.filter({ user_type: 'provider' }),
-      base44.entities.Review.list(),
-      base44.entities.Skill.list()
+      supabase.from("services").select("*").eq("is_active", true).order("created_date", { ascending: false }),
+      supabase.from("categories").select("*").order("name"),
+      supabase.from("profiles").select("*").eq("user_type", "provider"),
+      supabase.from("reviews").select("*"),
+      supabase.from("skills").select("*")
     ]);
-    
-    setServices(servicesData);
-    setCategories(categoriesData);
-    setProviders(providersData);
-    setReviews(reviewsData);
-    setSkills(skillsData);
-    
-    // Calculate recommended based on ratings and reviews
-    const servicesWithRating = servicesData.map(s => {
-      const rating = getProviderRating(s.provider_id);
+
+    setServices(servicesData.data || []);
+    setCategories(categoriesData.data || []);
+    setProviders(providersData.data || []);
+    setReviews(reviewsData.data || []);
+    setSkills(skillsData.data || []);
+
+    // Calculate recommended based on ratings
+    const servicesWithRating = (servicesData.data || []).map(s => {
+      const rating = getProviderRating(s.provider_id, reviewsData.data || []);
       return { ...s, avgRating: parseFloat(rating.avg) || 0, reviewCount: rating.count };
     });
+
     const recommended = servicesWithRating
       .filter(s => s.reviewCount > 0)
       .sort((a, b) => b.avgRating - a.avgRating || b.reviewCount - a.reviewCount)
       .slice(0, 6);
+
     setRecommendedServices(recommended);
-    
     setLoading(false);
   };
 
-  const getProviderRating = (providerId) => {
-    const providerReviews = reviews.filter(r => r.provider_id === providerId);
-    if (providerReviews.length === 0) return { avg: 0, count: 0 };
+  const getProviderRating = (providerId, allReviews = reviews) => {
+    const providerReviews = allReviews.filter(r => r.provider_id === providerId);
+    if (!providerReviews.length) return { avg: 0, count: 0 };
     const avg = providerReviews.reduce((sum, r) => sum + r.rating, 0) / providerReviews.length;
     return { avg: avg.toFixed(1), count: providerReviews.length };
   };
@@ -73,10 +75,10 @@ export default function Discover() {
   const getCategory = (categoryId) => categories.find(c => c.id === categoryId);
 
   const formatAmount = (amount) => {
-    if (!amount) return 'Negotiable';
-    return new Intl.NumberFormat('en-UG', {
-      style: 'currency',
-      currency: 'UGX',
+    if (!amount) return "Negotiable";
+    return new Intl.NumberFormat("en-UG", {
+      style: "currency",
+      currency: "UGX",
       minimumFractionDigits: 0,
       maximumFractionDigits: 0
     }).format(amount);
@@ -86,25 +88,25 @@ export default function Discover() {
     const provider = getProvider(service.provider_id);
     const rating = getProviderRating(service.provider_id);
     const providerSkills = skills.filter(s => s.provider_id === service.provider_id);
-    
+
     const matchesSearch = service.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           service.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           provider?.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           providerSkills.some(skill => skill.skill_name?.toLowerCase().includes(searchQuery.toLowerCase()));
-    const matchesCategory = categoryFilter === 'all' || service.category_id === categoryFilter;
-    const matchesLocation = !locationFilter || 
-                           provider?.location?.toLowerCase().includes(locationFilter.toLowerCase());
-    const matchesRating = ratingFilter === 'all' || 
-                         (ratingFilter === '4+' && parseFloat(rating.avg) >= 4) ||
-                         (ratingFilter === '3+' && parseFloat(rating.avg) >= 3);
-    
+
+    const matchesCategory = categoryFilter === "all" || service.category_id === categoryFilter;
+    const matchesLocation = !locationFilter || provider?.location?.toLowerCase().includes(locationFilter.toLowerCase());
+    const matchesRating = ratingFilter === "all" ||
+                          (ratingFilter === "4+" && parseFloat(rating.avg) >= 4) ||
+                          (ratingFilter === "3+" && parseFloat(rating.avg) >= 3);
+
     return matchesSearch && matchesCategory && matchesLocation && matchesRating;
   });
 
-  if (priceSort === 'low') {
-    filteredServices = filteredServices.sort((a, b) => (a.price || 0) - (b.price || 0));
-  } else if (priceSort === 'high') {
-    filteredServices = filteredServices.sort((a, b) => (b.price || 0) - (a.price || 0));
+  if (priceSort === "low") {
+    filteredServices.sort((a, b) => (a.price || 0) - (b.price || 0));
+  } else if (priceSort === "high") {
+    filteredServices.sort((a, b) => (b.price || 0) - (a.price || 0));
   }
 
   return (
@@ -127,7 +129,7 @@ export default function Discover() {
               {recommendedServices.slice(0, 3).map((service) => {
                 const provider = getProvider(service.provider_id);
                 const category = getCategory(service.category_id);
-                
+
                 return (
                   <Link
                     key={service.id}
@@ -170,7 +172,7 @@ export default function Discover() {
                 className="input-dark pl-12"
               />
             </div>
-            
+
             <div className="flex flex-wrap gap-3">
               <Select value={categoryFilter} onValueChange={setCategoryFilter}>
                 <SelectTrigger className="input-dark w-[160px]">
@@ -218,14 +220,14 @@ export default function Discover() {
 
               <div className="flex border border-[#2A2D3E] rounded-xl overflow-hidden">
                 <button
-                  onClick={() => setViewMode('grid')}
-                  className={`p-3 ${viewMode === 'grid' ? 'bg-[#FF6633] text-white' : 'text-gray-500 hover:text-white'}`}
+                  onClick={() => setViewMode("grid")}
+                  className={`p-3 ${viewMode === "grid" ? "bg-[#FF6633] text-white" : "text-gray-500 hover:text-white"}`}
                 >
                   <Grid className="w-4 h-4" />
                 </button>
                 <button
-                  onClick={() => setViewMode('list')}
-                  className={`p-3 ${viewMode === 'list' ? 'bg-[#FF6633] text-white' : 'text-gray-500 hover:text-white'}`}
+                  onClick={() => setViewMode("list")}
+                  className={`p-3 ${viewMode === "list" ? "bg-[#FF6633] text-white" : "text-gray-500 hover:text-white"}`}
                 >
                   <List className="w-4 h-4" />
                 </button>
@@ -240,7 +242,7 @@ export default function Discover() {
         )}
 
         {loading ? (
-          <div className={`grid gap-6 ${viewMode === 'grid' ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1'}`}>
+          <div className={`grid gap-6 ${viewMode === "grid" ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3" : "grid-cols-1"}`}>
             {[...Array(6)].map((_, i) => (
               <div key={i} className="card-dark p-4 animate-pulse">
                 <div className="aspect-video bg-[#2A2D3E] rounded-xl mb-4" />
@@ -250,47 +252,37 @@ export default function Discover() {
             ))}
           </div>
         ) : filteredServices.length > 0 ? (
-          <div className={`grid gap-6 ${viewMode === 'grid' ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1'}`}>
+          <div className={`grid gap-6 ${viewMode === "grid" ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3" : "grid-cols-1"}`}>
             {filteredServices.map(service => {
               const provider = getProvider(service.provider_id);
               const category = getCategory(service.category_id);
               const rating = getProviderRating(service.provider_id);
-              
+
               return (
                 <Link
                   key={service.id}
                   to={createPageUrl(`ServiceDetail?id=${service.id}`)}
-                  className={`card-dark overflow-hidden hover:border-[#FF6633]/30 transition-all group ${
-                    viewMode === 'list' ? 'flex' : ''
-                  }`}
+                  className={`card-dark overflow-hidden hover:border-[#FF6633]/30 transition-all group ${viewMode === "list" ? "flex" : ""}`}
                 >
-                  <div className={`relative overflow-hidden ${viewMode === 'list' ? 'w-48 flex-shrink-0' : 'aspect-video'}`}>
+                  <div className={`relative overflow-hidden ${viewMode === "list" ? "w-48 flex-shrink-0" : "aspect-video"}`}>
                     {service.image_url ? (
-                      <img 
-                        src={service.image_url} 
-                        alt={service.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                      />
+                      <img src={service.image_url} alt={service.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                     ) : (
                       <div className="w-full h-full bg-gradient-to-br from-[#FF6633]/20 to-[#E55A2B]/20 flex items-center justify-center">
                         <Briefcase className="w-12 h-12 text-[#FF6633]/50" />
                       </div>
                     )}
-                    {category && (
-                      <Badge className="absolute top-3 left-3 bg-black/50 text-white border-0">
-                        {category.name}
-                      </Badge>
-                    )}
+                    {category && <Badge className="absolute top-3 left-3 bg-black/50 text-white border-0">{category.name}</Badge>}
                   </div>
-                  
+
                   <div className="p-4 flex-1">
                     <h3 className="text-lg font-semibold text-white group-hover:text-[#FF6633] transition-colors line-clamp-1">
                       {service.title}
                     </h3>
                     <p className="text-gray-500 text-sm line-clamp-2 mt-1 mb-3">
-                      {service.description || 'No description'}
+                      {service.description || "No description"}
                     </p>
-                    
+
                     {provider && (
                       <div className="flex items-center gap-3 mb-3">
                         <div className="w-8 h-8 rounded-full overflow-hidden bg-[#2A2D3E]">
@@ -306,21 +298,21 @@ export default function Discover() {
                           <p className="text-white text-sm font-medium truncate">{provider.full_name}</p>
                           <div className="flex items-center gap-2 text-xs text-gray-500">
                             <MapPin className="w-3 h-3" />
-                            <span className="truncate">{provider.location || 'No location'}</span>
+                            <span className="truncate">{provider.location || "No location"}</span>
                           </div>
                         </div>
                       </div>
                     )}
-                    
+
                     <div className="flex items-center justify-between pt-3 border-t border-[#2A2D3E]">
                       <div className="flex items-center gap-1">
                         <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
-                        <span className="text-white font-medium">{rating.avg || 'New'}</span>
+                        <span className="text-white font-medium">{rating.avg || "New"}</span>
                         <span className="text-gray-500 text-sm">({rating.count})</span>
                       </div>
                       <div className="text-right">
                         <p className="text-[#FF6633] font-semibold">{formatAmount(service.price)}</p>
-                        {service.price_type && service.price_type !== 'fixed' && (
+                        {service.price_type && service.price_type !== "fixed" && (
                           <p className="text-gray-600 text-xs capitalize">{service.price_type}</p>
                         )}
                       </div>
@@ -335,7 +327,7 @@ export default function Discover() {
             <Search className="w-12 h-12 text-gray-600 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-white mb-2">No services found</h3>
             <p className="text-gray-500 mb-4">Try adjusting your filters or search term</p>
-            <Button onClick={() => { setSearchQuery(''); setCategoryFilter('all'); setLocationFilter(''); }} variant="outline" className="border-[#2A2D3E] text-white hover:bg-[#1A1D2E]">
+            <Button onClick={() => { setSearchQuery(""); setCategoryFilter("all"); setLocationFilter(""); }} variant="outline" className="border-[#2A2D3E] text-white hover:bg-[#1A1D2E]">
               Clear Filters
             </Button>
           </div>

@@ -1,12 +1,21 @@
-import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { createPageUrl } from '../utils';
-import { base44 } from '@/api/base44Client';
-import { FileText, Plus, Search, CheckCircle, XCircle, Loader2, ArrowUpRight, ArrowDownLeft } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
+import { createPageUrl } from "../utils";
+import { supabase } from "../lib/supabaseClient";
+import {
+  FileText,
+  Plus,
+  Search,
+  CheckCircle,
+  XCircle,
+  Loader2,
+  ArrowUpRight,
+  ArrowDownLeft,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -14,8 +23,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -23,14 +32,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { format } from 'date-fns';
-import { toast } from 'sonner';
+import { format } from "date-fns";
+import { toast } from "sonner";
 
 const statusColors = {
-  pending_approval: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
-  approved: 'bg-green-500/20 text-green-400 border-green-500/30',
-  rejected: 'bg-red-500/20 text-red-400 border-red-500/30',
-  completed: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+  pending_approval: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
+  approved: "bg-green-500/20 text-green-400 border-green-500/30",
+  rejected: "bg-red-500/20 text-red-400 border-red-500/30",
+  completed: "bg-blue-500/20 text-blue-400 border-blue-500/30",
 };
 
 export default function DashboardOrders() {
@@ -42,105 +51,144 @@ export default function DashboardOrders() {
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(null);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const [newOrder, setNewOrder] = useState({ job_id: '', supplier_email: '', amount: '', description: '' });
+  const [newOrder, setNewOrder] = useState({
+    job_id: "",
+    supplier_email: "",
+    amount: "",
+    description: "",
+  });
 
   useEffect(() => {
     loadData();
   }, []);
 
   const loadData = async () => {
-    const userData = await base44.auth.me();
-    setUser(userData);
-    
+    // Get authenticated user
+    const {
+      data: { user: currentUser },
+      error,
+    } = await supabase.auth.getUser();
+    if (error || !currentUser) return;
+
+    setUser(currentUser);
+
     // Load profile
-    const profiles = await base44.entities.Profile.filter({ user_email: userData.email });
-    if (profiles.length > 0) {
-      setProfile(profiles[0]);
-    }
-    
-    // Load orders (where user is either requester or supplier)
-    const allOrders = await base44.entities.Order.list('-created_date');
-    const userOrders = allOrders.filter(o => 
-      o.requester_email === userData.email || o.supplier_email === userData.email
+    const { data: profileData } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("user_email", currentUser.email)
+      .limit(1);
+    if (profileData?.length > 0) setProfile(profileData[0]);
+
+    // Load orders
+    const { data: allOrders } = await supabase
+      .from("orders")
+      .select("*")
+      .order("created_date", { ascending: false });
+    setOrders(
+      (allOrders || []).filter(
+        (o) =>
+          o.requester_email === currentUser.email ||
+          o.supplier_email === currentUser.email
+      )
     );
-    setOrders(userOrders);
-    
-    // Load jobs where user is provider (for creating orders)
-    const allJobs = await base44.entities.Job.filter({ provider_email: userData.email });
-    setJobs(allJobs.filter(j => j.status === 'in_progress' || j.status === 'funded'));
-    
-    // Load other providers for supplier selection
-    const allProviders = await base44.entities.Profile.filter({ user_type: 'provider' });
-    setProviders(allProviders.filter(p => p.user_email !== userData.email));
-    
+
+    // Load jobs (where user is provider)
+    const { data: allJobs } = await supabase
+      .from("jobs")
+      .select("*")
+      .eq("provider_email", currentUser.email);
+    setJobs(
+      (allJobs || []).filter(
+        (j) => j.status === "in_progress" || j.status === "funded"
+      )
+    );
+
+    // Load other providers for selection
+    const { data: allProviders } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("user_type", "provider");
+    setProviders(
+      (allProviders || []).filter((p) => p.user_email !== currentUser.email)
+    );
+
     setLoading(false);
   };
 
-  const formatAmount = (amount) => {
-    return new Intl.NumberFormat('en-UG', {
-      style: 'currency',
-      currency: 'UGX',
+  const formatAmount = (amount) =>
+    new Intl.NumberFormat("en-UG", {
+      style: "currency",
+      currency: "UGX",
       minimumFractionDigits: 0,
-      maximumFractionDigits: 0
+      maximumFractionDigits: 0,
     }).format(amount || 0);
-  };
 
-  const incomingOrders = orders.filter(o => o.supplier_email === user?.email);
-  const outgoingOrders = orders.filter(o => o.requester_email === user?.email);
+  const incomingOrders = orders.filter((o) => o.supplier_email === user?.email);
+  const outgoingOrders = orders.filter((o) => o.requester_email === user?.email);
 
   const handleApprove = async (order) => {
     setProcessing(order.id);
-    await base44.entities.Order.update(order.id, { status: 'approved' });
-    toast.success('Order approved');
+    await supabase.from("orders").update({ status: "approved" }).eq("id", order.id);
+    toast.success("Order approved");
     setProcessing(null);
     loadData();
   };
 
   const handleReject = async (order) => {
     setProcessing(order.id);
-    await base44.entities.Order.update(order.id, { status: 'rejected' });
-    toast.success('Order rejected');
+    await supabase.from("orders").update({ status: "rejected" }).eq("id", order.id);
+    toast.success("Order rejected");
     setProcessing(null);
     loadData();
   };
 
   const handleCreateOrder = async () => {
     if (!newOrder.job_id || !newOrder.supplier_email || !newOrder.amount || !newOrder.description) {
-      toast.error('Please fill in all fields');
+      toast.error("Please fill in all fields");
       return;
     }
-    
-    setProcessing('create');
-    
+
+    setProcessing("create");
+
     // Get supplier profile
-    const supplierProfiles = await base44.entities.Profile.filter({ user_email: newOrder.supplier_email });
-    
-    await base44.entities.Order.create({
+    const { data: supplierProfiles } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("user_email", newOrder.supplier_email)
+      .limit(1);
+
+    await supabase.from("orders").insert({
       job_id: newOrder.job_id,
       requester_id: profile.id,
       requester_email: user.email,
-      supplier_id: supplierProfiles.length > 0 ? supplierProfiles[0].id : null,
+      supplier_id: supplierProfiles?.[0]?.id || null,
       supplier_email: newOrder.supplier_email,
       amount: parseFloat(newOrder.amount),
       description: newOrder.description,
-      status: 'pending_approval'
+      status: "pending_approval",
+      created_date: new Date().toISOString(),
     });
-    
-    toast.success('Order created');
+
+    toast.success("Order created");
     setCreateDialogOpen(false);
-    setNewOrder({ job_id: '', supplier_email: '', amount: '', description: '' });
+    setNewOrder({ job_id: "", supplier_email: "", amount: "", description: "" });
     setProcessing(null);
     loadData();
   };
 
   const OrderCard = ({ order, showActions }) => {
     const isIncoming = order.supplier_email === user?.email;
-    
+
     return (
       <div className="card-dark p-5">
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-start gap-4">
-            <div className={`w-10 h-10 rounded-xl ${isIncoming ? 'bg-green-500/10' : 'bg-blue-500/10'} flex items-center justify-center`}>
+            <div
+              className={`w-10 h-10 rounded-xl ${
+                isIncoming ? "bg-green-500/10" : "bg-blue-500/10"
+              } flex items-center justify-center`}
+            >
               {isIncoming ? (
                 <ArrowDownLeft className="w-5 h-5 text-green-400" />
               ) : (
@@ -153,18 +201,18 @@ export default function DashboardOrders() {
                 {isIncoming ? `From: ${order.requester_email}` : `To: ${order.supplier_email}`}
               </p>
               <p className="text-gray-600 text-xs mt-1">
-                {format(new Date(order.created_date), 'MMM d, yyyy · h:mm a')}
+                {format(new Date(order.created_date), "MMM d, yyyy · h:mm a")}
               </p>
               <Badge className={`${statusColors[order.status]} border mt-2 capitalize`}>
-                {order.status?.replace('_', ' ')}
+                {order.status?.replace("_", " ")}
               </Badge>
             </div>
           </div>
           <div className="text-right">
             <p className="text-lg font-semibold text-white">{formatAmount(order.amount)}</p>
-            {showActions && order.status === 'pending_approval' && (
+            {showActions && order.status === "pending_approval" && (
               <div className="flex gap-2 mt-3">
-                <Button 
+                <Button
                   size="sm"
                   onClick={() => handleApprove(order)}
                   disabled={processing === order.id}
@@ -176,7 +224,7 @@ export default function DashboardOrders() {
                     <CheckCircle className="w-4 h-4" />
                   )}
                 </Button>
-                <Button 
+                <Button
                   size="sm"
                   variant="outline"
                   onClick={() => handleReject(order)}
@@ -206,13 +254,15 @@ export default function DashboardOrders() {
     );
   }
 
-  if (!profile || profile.user_type !== 'provider') {
+  if (!profile || profile.user_type !== "provider") {
     return (
       <div className="p-6 lg:p-8 flex items-center justify-center min-h-[60vh]">
         <div className="card-dark p-12 text-center max-w-md">
           <FileText className="w-12 h-12 text-gray-600 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-white mb-2">Orders are for Providers</h3>
-          <p className="text-gray-500">Internal orders are used by providers to sub-contract work.</p>
+          <p className="text-gray-500">
+            Internal orders are used by providers to sub-contract work.
+          </p>
         </div>
       </div>
     );
@@ -242,7 +292,7 @@ export default function DashboardOrders() {
             Outgoing ({outgoingOrders.length})
           </TabsTrigger>
         </TabsList>
-        
+
         <TabsContent value="incoming">
           {incomingOrders.length > 0 ? (
             <div className="space-y-4">
@@ -258,7 +308,7 @@ export default function DashboardOrders() {
             </div>
           )}
         </TabsContent>
-        
+
         <TabsContent value="outgoing">
           {outgoingOrders.length > 0 ? (
             <div className="space-y-4">
@@ -291,11 +341,13 @@ export default function DashboardOrders() {
               Sub-contract work to another provider
             </DialogDescription>
           </DialogHeader>
+
           <div className="space-y-4 mt-4">
+            {/* Job Selection */}
             <div>
               <Label className="text-gray-400 mb-2 block">Select Job</Label>
-              <Select 
-                value={newOrder.job_id} 
+              <Select
+                value={newOrder.job_id}
                 onValueChange={(value) => setNewOrder({ ...newOrder, job_id: value })}
               >
                 <SelectTrigger className="input-dark">
@@ -310,11 +362,12 @@ export default function DashboardOrders() {
                 </SelectContent>
               </Select>
             </div>
-            
+
+            {/* Supplier Selection */}
             <div>
               <Label className="text-gray-400 mb-2 block">Select Supplier</Label>
-              <Select 
-                value={newOrder.supplier_email} 
+              <Select
+                value={newOrder.supplier_email}
                 onValueChange={(value) => setNewOrder({ ...newOrder, supplier_email: value })}
               >
                 <SelectTrigger className="input-dark">
@@ -323,13 +376,14 @@ export default function DashboardOrders() {
                 <SelectContent className="bg-[#1A1D2E] border-[#2A2D3E]">
                   {providers.map((p) => (
                     <SelectItem key={p.id} value={p.user_email}>
-                      {p.full_name} ({p.location || 'No location'})
+                      {p.full_name} ({p.location || "No location"})
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-            
+
+            {/* Amount */}
             <div>
               <Label className="text-gray-400 mb-2 block">Amount (UGX)</Label>
               <Input
@@ -340,7 +394,8 @@ export default function DashboardOrders() {
                 className="input-dark"
               />
             </div>
-            
+
+            {/* Description */}
             <div>
               <Label className="text-gray-400 mb-2 block">Description</Label>
               <Textarea
@@ -350,19 +405,15 @@ export default function DashboardOrders() {
                 className="input-dark min-h-[80px]"
               />
             </div>
-            
-            <Button 
-              onClick={handleCreateOrder} 
-              disabled={processing === 'create'}
-              className="btn-primary w-full"
-            >
-              {processing === 'create' ? (
+
+            <Button onClick={handleCreateOrder} disabled={processing === "create"} className="btn-primary w-full">
+              {processing === "create" ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   Creating...
                 </>
               ) : (
-                'Create Order'
+                "Create Order"
               )}
             </Button>
           </div>

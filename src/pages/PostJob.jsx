@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { base44 } from '@/api/base44Client';
+import { supabase } from "@/lib/supabaseClient";
 import { createPageUrl } from '../utils';
 import { Briefcase, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -21,7 +21,7 @@ export default function PostJob() {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  
+
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -38,10 +38,19 @@ export default function PostJob() {
   }, []);
 
   const loadData = async () => {
-    const userData = await base44.auth.me();
-    setUser(userData);
-    
-    const profiles = await base44.entities.Profile.filter({ user_email: userData.email });
+    setLoading(true);
+
+    // Get current user
+    const { data: { user: currentUser } } = await supabase.auth.getUser();
+    if (!currentUser) return;
+    setUser(currentUser);
+
+    // Get user profile
+    const { data: profiles } = await supabase
+      .from('Profile')
+      .select('*')
+      .eq('user_email', currentUser.email);
+
     if (profiles.length > 0) {
       setProfile(profiles[0]);
       if (profiles[0].user_type !== 'client') {
@@ -50,37 +59,55 @@ export default function PostJob() {
         return;
       }
     }
-    
-    const cats = await base44.entities.Category.list('name');
+
+    // Get categories
+    const { data: cats } = await supabase
+      .from('Category')
+      .select('*')
+      .order('name', { ascending: true });
     setCategories(cats);
+
     setLoading(false);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!formData.title || !formData.description) {
       toast.error('Please fill in required fields');
       return;
     }
-    
+
     setSubmitting(true);
-    
-    const posting = await base44.entities.JobPosting.create({
-      client_id: profile.id,
-      client_email: user.email,
-      client_name: profile.full_name,
-      title: formData.title,
-      description: formData.description,
-      category_id: formData.category_id || null,
-      budget_min: formData.budget_min ? parseFloat(formData.budget_min) : null,
-      budget_max: formData.budget_max ? parseFloat(formData.budget_max) : null,
-      location: formData.location,
-      deadline: formData.deadline || null,
-      status: 'open',
-      skills_required: formData.skills_required ? formData.skills_required.split(',').map(s => s.trim()) : []
-    });
-    
+
+    const { data: posting, error } = await supabase
+      .from('JobPosting')
+      .insert({
+        client_id: profile.id,
+        client_email: user.email,
+        client_name: profile.full_name,
+        title: formData.title,
+        description: formData.description,
+        category_id: formData.category_id || null,
+        budget_min: formData.budget_min ? parseFloat(formData.budget_min) : null,
+        budget_max: formData.budget_max ? parseFloat(formData.budget_max) : null,
+        location: formData.location,
+        deadline: formData.deadline || null,
+        status: 'open',
+        skills_required: formData.skills_required
+          ? formData.skills_required.split(',').map(s => s.trim())
+          : [],
+        created_date: new Date().toISOString()
+      })
+      .select()
+      .single();
+
+    if (error) {
+      toast.error('Failed to post job. Please try again.');
+      setSubmitting(false);
+      return;
+    }
+
     toast.success('Job posted successfully!');
     window.location.href = createPageUrl(`JobPostingDetail?id=${posting.id}`);
   };

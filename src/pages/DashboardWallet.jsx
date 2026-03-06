@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { base44 } from '@/api/base44Client';
+import React, { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabaseClient";
 import { 
   Wallet, 
   ArrowUpRight, 
@@ -7,10 +7,10 @@ import {
   Plus, 
   Loader2,
   Phone
-} from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -18,10 +18,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Badge } from '@/components/ui/badge';
-import { format } from 'date-fns';
-import { toast } from 'sonner';
-import WalletCard from '../components/wallet/WalletCard';
+import { Badge } from "@/components/ui/badge";
+import { format } from "date-fns";
+import { toast } from "sonner";
+import WalletCard from "../components/wallet/WalletCard";
 
 export default function DashboardWallet() {
   const [user, setUser] = useState(null);
@@ -29,12 +29,12 @@ export default function DashboardWallet() {
   const [transactions, setTransactions] = useState([]);
   const [withdrawals, setWithdrawals] = useState([]);
   const [loading, setLoading] = useState(true);
-  
+
   const [depositDialogOpen, setDepositDialogOpen] = useState(false);
   const [withdrawDialogOpen, setWithdrawDialogOpen] = useState(false);
-  const [depositAmount, setDepositAmount] = useState('');
-  const [withdrawAmount, setWithdrawAmount] = useState('');
-  const [phoneNumber, setPhoneNumber] = useState('');
+  const [depositAmount, setDepositAmount] = useState("");
+  const [withdrawAmount, setWithdrawAmount] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
   const [processing, setProcessing] = useState(false);
 
   useEffect(() => {
@@ -42,79 +42,107 @@ export default function DashboardWallet() {
   }, []);
 
   const loadData = async () => {
-    const userData = await base44.auth.me();
+    // Get current user
+    const { data: { user: userData } } = await supabase.auth.getUser();
+    if (!userData) return;
     setUser(userData);
-    
+
     // Load wallet
-    const wallets = await base44.entities.Wallet.filter({ user_email: userData.email });
-    if (wallets.length > 0) {
+    const { data: wallets } = await supabase
+      .from("wallets")
+      .select("*")
+      .eq("user_email", userData.email)
+      .limit(1);
+
+    if (wallets?.length > 0) {
       setWallet(wallets[0]);
-      
+
       // Load transactions
-      const allTransactions = await base44.entities.Transaction.list('-created_date', 50);
-      const userTransactions = allTransactions.filter(t => 
-        t.from_email === userData.email || t.to_email === userData.email
-      );
-      setTransactions(userTransactions);
+      const { data: allTransactions } = await supabase
+        .from("transactions")
+        .select("*")
+        .order("created_date", { ascending: false })
+        .limit(50);
       
+      const userTransactions = allTransactions?.filter(t =>
+        t.from_email === userData.email || t.to_email === userData.email
+      ) || [];
+      setTransactions(userTransactions);
+
       // Load withdrawals
-      const userWithdrawals = await base44.entities.Withdrawal.filter({ user_email: userData.email });
-      setWithdrawals(userWithdrawals);
+      const { data: userWithdrawals } = await supabase
+        .from("withdrawals")
+        .select("*")
+        .eq("user_email", userData.email);
+      setWithdrawals(userWithdrawals || []);
+
     } else {
       // Create wallet if doesn't exist
-      const profiles = await base44.entities.Profile.filter({ user_email: userData.email });
-      if (profiles.length > 0) {
-        const newWallet = await base44.entities.Wallet.create({
-          user_id: profiles[0].id,
-          user_email: userData.email,
-          balance: 0,
-          available_balance: 0,
-          locked_balance: 0
-        });
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("user_email", userData.email)
+        .limit(1);
+
+      if (profiles?.length > 0) {
+        const { data: newWallet } = await supabase
+          .from("wallets")
+          .insert({
+            user_id: profiles[0].id,
+            user_email: userData.email,
+            balance: 0,
+            available_balance: 0,
+            locked_balance: 0
+          })
+          .select()
+          .single();
+
         setWallet(newWallet);
       }
     }
-    
+
     setLoading(false);
   };
 
   const handleDeposit = async () => {
     const amount = parseFloat(depositAmount);
     if (!amount || amount <= 0) {
-      toast.error('Please enter a valid amount');
+      toast.error("Please enter a valid amount");
       return;
     }
-    
+
     setProcessing(true);
-    
-    // Update wallet balance
-    await base44.entities.Wallet.update(wallet.id, {
+
+    // Update wallet
+    await supabase.from("wallets").update({
       balance: (wallet.balance || 0) + amount,
       available_balance: (wallet.available_balance || 0) + amount
-    });
-    
-    // Create transaction record
-    await base44.entities.Transaction.create({
+    }).eq("id", wallet.id);
+
+    // Create transaction
+    await supabase.from("transactions").insert({
       to_wallet_id: wallet.id,
       to_email: user.email,
       amount,
-      type: 'deposit',
-      description: 'Wallet deposit via Mobile Money',
-      status: 'completed'
+      type: "deposit",
+      description: "Wallet deposit via Mobile Money",
+      status: "completed",
+      created_date: new Date().toISOString()
     });
-    
+
     // Create notification
-    await base44.entities.Notification.create({
+    await supabase.from("notifications").insert({
       user_email: user.email,
-      title: 'Deposit Successful',
+      title: "Deposit Successful",
       message: `UGX ${amount.toLocaleString()} has been added to your wallet`,
-      type: 'payment',
-      link: 'DashboardWallet'
+      type: "payment",
+      link: "DashboardWallet",
+      created_date: new Date().toISOString()
     });
-    
-    toast.success('Deposit successful');
+
+    toast.success("Deposit successful");
     setDepositDialogOpen(false);
-    setDepositAmount('');
+    setDepositAmount("");
     setProcessing(false);
     loadData();
   };
@@ -122,68 +150,70 @@ export default function DashboardWallet() {
   const handleWithdraw = async () => {
     const amount = parseFloat(withdrawAmount);
     if (!amount || amount <= 0) {
-      toast.error('Please enter a valid amount');
+      toast.error("Please enter a valid amount");
       return;
     }
     if (amount > (wallet.available_balance || 0)) {
-      toast.error('Insufficient available balance');
+      toast.error("Insufficient available balance");
       return;
     }
     if (!phoneNumber) {
-      toast.error('Please enter your mobile money number');
+      toast.error("Please enter your mobile money number");
       return;
     }
-    
+
     setProcessing(true);
-    
-    // Update wallet balance
-    await base44.entities.Wallet.update(wallet.id, {
+
+    // Update wallet
+    await supabase.from("wallets").update({
       balance: (wallet.balance || 0) - amount,
       available_balance: (wallet.available_balance || 0) - amount
-    });
-    
+    }).eq("id", wallet.id);
+
     // Create withdrawal record
-    await base44.entities.Withdrawal.create({
+    await supabase.from("withdrawals").insert({
       wallet_id: wallet.id,
       user_email: user.email,
       amount,
       phone_number: phoneNumber,
-      status: 'processing'
+      status: "processing",
+      created_date: new Date().toISOString()
     });
-    
-    // Create transaction record
-    await base44.entities.Transaction.create({
+
+    // Create transaction
+    await supabase.from("transactions").insert({
       from_wallet_id: wallet.id,
       from_email: user.email,
       amount,
-      type: 'withdrawal',
+      type: "withdrawal",
       description: `Withdrawal to ${phoneNumber}`,
-      status: 'completed'
+      status: "completed",
+      created_date: new Date().toISOString()
     });
-    
-    toast.success('Withdrawal request submitted');
+
+    toast.success("Withdrawal request submitted");
     setWithdrawDialogOpen(false);
-    setWithdrawAmount('');
-    setPhoneNumber('');
+    setWithdrawAmount("");
+    setPhoneNumber("");
     setProcessing(false);
     loadData();
   };
 
   const formatAmount = (amount) => {
-    return new Intl.NumberFormat('en-UG', {
-      style: 'currency',
-      currency: 'UGX',
+    return new Intl.NumberFormat("en-UG", {
+      style: "currency",
+      currency: "UGX",
       minimumFractionDigits: 0,
       maximumFractionDigits: 0
     }).format(amount || 0);
   };
 
   const transactionTypeConfig = {
-    deposit: { icon: ArrowDownLeft, color: 'text-green-400', bg: 'bg-green-400/10', label: 'Deposit' },
-    withdrawal: { icon: ArrowUpRight, color: 'text-red-400', bg: 'bg-red-400/10', label: 'Withdrawal' },
-    escrow_lock: { icon: Wallet, color: 'text-yellow-400', bg: 'bg-yellow-400/10', label: 'Escrow Lock' },
-    release: { icon: ArrowDownLeft, color: 'text-green-400', bg: 'bg-green-400/10', label: 'Payment Received' },
-    internal_transfer: { icon: ArrowUpRight, color: 'text-blue-400', bg: 'bg-blue-400/10', label: 'Transfer' }
+    deposit: { icon: ArrowDownLeft, color: "text-green-400", bg: "bg-green-400/10", label: "Deposit" },
+    withdrawal: { icon: ArrowUpRight, color: "text-red-400", bg: "bg-red-400/10", label: "Withdrawal" },
+    escrow_lock: { icon: Wallet, color: "text-yellow-400", bg: "bg-yellow-400/10", label: "Escrow Lock" },
+    release: { icon: ArrowDownLeft, color: "text-green-400", bg: "bg-green-400/10", label: "Payment Received" },
+    internal_transfer: { icon: ArrowUpRight, color: "text-blue-400", bg: "bg-blue-400/10", label: "Transfer" }
   };
 
   if (loading) {
@@ -242,7 +272,7 @@ export default function DashboardWallet() {
                   const config = transactionTypeConfig[tx.type] || transactionTypeConfig.deposit;
                   const Icon = config.icon;
                   const isOutgoing = tx.from_email === user?.email;
-                  
+
                   return (
                     <div key={tx.id} className="flex items-center justify-between p-4 rounded-xl bg-[#0F1117] border border-[#2A2D3E]">
                       <div className="flex items-center gap-4">

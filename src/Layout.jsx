@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from './utils';
-import { base44 } from '@/api/base44Client';
+import { supabase } from "@/lib/supabaseClient";
 import { 
   Search, 
   Menu, 
@@ -42,27 +42,33 @@ export default function Layout({ children, currentPageName }) {
   }, []);
 
   const loadUser = async () => {
-    try {
-      const isAuth = await base44.auth.isAuthenticated();
-      if (isAuth) {
-        const userData = await base44.auth.me();
-        setUser(userData);
-        // Load profile
-        const profiles = await base44.entities.Profile.filter({ user_email: userData.email });
-        if (profiles.length > 0) {
-          setProfile(profiles[0]);
-        }
-      }
-    } catch (e) {
-      console.log('Not authenticated');
-    } finally {
-      setLoading(false);
-    }
-  };
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
 
-  const handleLogout = () => {
-    base44.auth.logout();
-  };
+    if (user) {
+      setUser(user);
+
+      const { data: profileData } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("user_id", user.id)
+        .single();
+
+      if (profileData) {
+        setProfile(profileData);
+      }
+    }
+  } catch (error) {
+    console.log("Not authenticated");
+  } finally {
+    setLoading(false);
+  }
+};
+
+  const handleLogout = async () => {
+  await supabase.auth.signOut();
+  window.location.href = "/";
+};
 
   const sidebarLinks = [
     { name: 'Overview', icon: LayoutDashboard, page: 'Dashboard' },
@@ -115,13 +121,13 @@ export default function Layout({ children, currentPageName }) {
               })}
             </nav>
 
-            {/* User Info */}
+            {/* User Info  profile.profile_image_url */}
             <div className="p-4 border-t border-[#2A2D3E]">
               <div className="flex items-center gap-3 p-3 rounded-xl bg-[#1A1D2E]">
                 <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#FF6633] to-[#E55A2B] flex items-center justify-center overflow-hidden">
-                  {profile?.profile_image_url ? (
-                    <img src={profile.profile_image_url} alt="" className="w-full h-full object-cover" />
-                  ) : (
+                  {profile?.avatar_url ? (
+                      <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />
+                    ) : (
                     <span className="text-white font-semibold">
                       {profile?.full_name?.charAt(0) || user?.email?.charAt(0)?.toUpperCase()}
                     </span>
@@ -281,13 +287,13 @@ export default function Layout({ children, currentPageName }) {
                 <>
                   <Button
                     variant="ghost"
-                    onClick={() => base44.auth.redirectToLogin()}
+                    onClick={() => window.location.href = "/login"}
                     className="text-gray-400 hover:text-white hover:bg-transparent"
                   >
                     Sign In
                   </Button>
                   <Button
-                    onClick={() => base44.auth.redirectToLogin()}
+                    onClick={() => window.location.href = "/login"}
                     className="btn-primary"
                   >
                     Get Started
@@ -305,7 +311,7 @@ export default function Layout({ children, currentPageName }) {
             </div>
           </div>
 
-          {/* Mobile Nav */}
+          {/* Mobile Nav  profile */}
           {mobileMenuOpen && (
             <div className="md:hidden py-4 border-t border-[#2A2D3E]">
               <nav className="flex flex-col gap-2">

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { base44 } from '@/api/base44Client';
+import { supabase } from '@/lib/supabaseClient'; // your Supabase client
 import { Search, MapPin } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import ProviderGrid from '../components/providers/ProviderGrid';
@@ -15,8 +15,21 @@ export default function Providers() {
   }, []);
 
   const loadProviders = async () => {
-    const data = await base44.entities.Profile.filter({ user_type: 'provider' }, '-created_date');
-    setProviders(data);
+    setLoading(true);
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('user_type', 'provider')
+      .order('created_at', { ascending: false }); // replace created_date with your Supabase column
+
+    if (error) {
+      console.error('Error fetching providers:', error.message);
+      setProviders([]);
+    } else {
+      setProviders(data);
+    }
+
     setLoading(false);
   };
 

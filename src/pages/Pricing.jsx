@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { base44 } from '@/api/base44Client';
+import { supabase } from "@/lib/supabaseClient";
 import { Check, Star, Zap, Crown, Rocket } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -33,7 +33,6 @@ const plans = [
     icon: Zap,
     description: 'Perfect for growing providers',
     color: 'from-blue-500 to-blue-600',
-    popular: false,
     features: {
       max_services: 10,
       featured_listing: false,
@@ -108,24 +107,32 @@ export default function Pricing() {
   }, []);
 
   const loadData = async () => {
-    try {
-      const isAuth = await base44.auth.isAuthenticated();
-      if (isAuth) {
-        const userData = await base44.auth.me();
-        setUser(userData);
-        
-        const subs = await base44.entities.Subscription.filter({ user_email: userData.email });
-        if (subs.length > 0 && subs[0].status === 'active') {
-          setSubscription(subs[0]);
-        }
-      }
-    } catch (e) {}
+    setLoading(true);
+
+    // Get current user
+    const { data: { user: currentUser } } = await supabase.auth.getUser();
+    if (!currentUser) {
+      setLoading(false);
+      return;
+    }
+    setUser(currentUser);
+
+    // Fetch user's active subscription
+    const { data: subs } = await supabase
+      .from('Subscription')
+      .select('*')
+      .eq('user_email', currentUser.email)
+      .eq('status', 'active')
+      .limit(1)
+      .single();
+
+    if (subs) setSubscription(subs);
     setLoading(false);
   };
 
   const handleSubscribe = async (plan) => {
     if (!user) {
-      base44.auth.redirectToLogin();
+      toast.error('You must be logged in to subscribe');
       return;
     }
 
@@ -135,39 +142,58 @@ export default function Pricing() {
     }
 
     setProcessing(true);
-    
+
     const endDate = new Date();
     endDate.setMonth(endDate.getMonth() + 1);
 
     if (subscription) {
-      await base44.entities.Subscription.update(subscription.id, {
-        plan: plan.name.toLowerCase(),
-        features: plan.features,
-        end_date: endDate.toISOString()
-      });
-    } else {
-      await base44.entities.Subscription.create({
-        user_email: user.email,
-        plan: plan.name.toLowerCase(),
-        status: 'active',
-        start_date: new Date().toISOString(),
-        end_date: endDate.toISOString(),
-        features: plan.features
-      });
-    }
+      // Update existing subscription
+      const { error } = await supabase
+        .from('Subscription')
+        .update({
+          plan: plan.name.toLowerCase(),
+          features: plan.features,
+          end_date: endDate.toISOString()
+        })
+        .eq('id', subscription.id);
 
-    await base44.entities.Notification.create({
-      user_email: user.email,
-      title: 'Subscription Updated!',
-      message: `You are now subscribed to the ${plan.name} plan`,
-      type: 'system',
-      link: 'Dashboard'
-    });
+      if (error) {
+        toast.error('Failed to update subscription');
+        setProcessing(false);
+        return;
+      }
+    } else {
+      // Create new subscription
+      const { error } = await supabase
+        .from('Subscription')
+        .insert({
+          user_email: user.email,
+          plan: plan.name.toLowerCase(),
+          status: 'active',
+          start_date: new Date().toISOString(),
+          end_date: endDate.toISOString(),
+          features: plan.features
+        });
+
+      if (error) {
+        toast.error('Failed to create subscription');
+        setProcessing(false);
+        return;
+      }
+    }
 
     toast.success(`Successfully subscribed to ${plan.name} plan!`);
     setProcessing(false);
     loadData();
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen py-12 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-[#FF6B3D] animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen py-12 lg:py-16">
@@ -198,7 +224,7 @@ export default function Pricing() {
           {plans.map((plan) => {
             const Icon = plan.icon;
             const isCurrentPlan = subscription?.plan === plan.name.toLowerCase();
-            
+
             return (
               <div
                 key={plan.name}

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '../utils';
-import { base44 } from '@/api/base44Client';
+import { supabase } from "@/lib/supabaseClient";
 import { ChevronLeft, MapPin, Calendar, DollarSign, Briefcase, Send, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -33,6 +33,7 @@ export default function JobPostingDetail() {
   }, []);
 
   const loadData = async () => {
+    setLoading(true);
     const urlParams = new URLSearchParams(window.location.search);
     const id = urlParams.get('id');
     
@@ -41,29 +42,45 @@ export default function JobPostingDetail() {
       return;
     }
 
-    const postings = await base44.entities.JobPosting.filter({ id });
-    if (postings.length > 0) {
+    // Load job posting
+    const { data: postings } = await supabase
+      .from('JobPostings')
+      .select('*')
+      .eq('id', id)
+      .limit(1);
+    if (postings?.length > 0) {
       setPosting(postings[0]);
       
+      // Load category
       if (postings[0].category_id) {
-        const cats = await base44.entities.Category.filter({ id: postings[0].category_id });
-        if (cats.length > 0) setCategory(cats[0]);
+        const { data: cats } = await supabase
+          .from('Categories')
+          .select('*')
+          .eq('id', postings[0].category_id)
+          .limit(1);
+        if (cats?.length > 0) setCategory(cats[0]);
       }
-      
-      const apps = await base44.entities.JobApplication.filter({ job_posting_id: id });
-      setApplications(apps);
+
+      // Load job applications
+      const { data: apps } = await supabase
+        .from('JobApplications')
+        .select('*')
+        .eq('job_posting_id', id);
+      if (apps) setApplications(apps);
     }
-    
-    try {
-      const isAuth = await base44.auth.isAuthenticated();
-      if (isAuth) {
-        const userData = await base44.auth.me();
-        setUser(userData);
-        const profiles = await base44.entities.Profile.filter({ user_email: userData.email });
-        if (profiles.length > 0) setProfile(profiles[0]);
-      }
-    } catch (e) {}
-    
+
+    // Load current user
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+    if (authUser) {
+      setUser(authUser);
+      const { data: profiles } = await supabase
+        .from('Profiles')
+        .select('*')
+        .eq('email', authUser.email)
+        .limit(1);
+      if (profiles?.length > 0) setProfile(profiles[0]);
+    }
+
     setLoading(false);
   };
 
@@ -72,27 +89,36 @@ export default function JobPostingDetail() {
       toast.error('Please fill in all fields');
       return;
     }
-    
+
     setSubmitting(true);
-    
-    await base44.entities.JobApplication.create({
+
+    // Create job application
+    const { error } = await supabase.from('JobApplications').insert({
       job_posting_id: posting.id,
       provider_id: profile.id,
       provider_email: user.email,
       provider_name: profile.full_name,
       proposal: proposalForm.proposal,
       bid_amount: parseFloat(proposalForm.bid_amount),
-      status: 'pending'
+      status: 'pending',
+      created_at: new Date().toISOString()
     });
-    
-    await base44.entities.Notification.create({
+    if (error) {
+      toast.error('Failed to submit application');
+      setSubmitting(false);
+      return;
+    }
+
+    // Create notification
+    await supabase.from('Notifications').insert({
       user_email: posting.client_email,
       title: 'New Application!',
       message: `${profile.full_name} applied to your job "${posting.title}"`,
       type: 'job',
-      link: `JobPostingDetail?id=${posting.id}`
+      link: `JobPostingDetail?id=${posting.id}`,
+      created_at: new Date().toISOString()
     });
-    
+
     toast.success('Application submitted!');
     setApplyDialogOpen(false);
     setSubmitting(false);
@@ -185,7 +211,7 @@ export default function JobPostingDetail() {
                       </div>
                       <p className="text-white text-sm">{app.proposal}</p>
                       <p className="text-gray-500 text-xs mt-2">
-                        Applied {format(new Date(app.created_date), 'MMM d, yyyy')}
+                        Applied {format(new Date(app.created_at), 'MMM d, yyyy')}
                       </p>
                     </div>
                   ))}
