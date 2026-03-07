@@ -92,9 +92,9 @@ export default function Layout({ children, currentPageName }) {
 
   if (isDashboard) {
     return (
-      <div className="min-h-screen bg-[#0F1117] flex">
+      <div className="min-h-screen bg-[#3a4e8a] flex">
         {/* Sidebar */}
-        <aside className="hidden lg:flex lg:flex-col lg:w-64 lg:fixed lg:inset-y-0 bg-[#0F1117] border-r border-[#2A2D3E]">
+        <aside className="hidden lg:flex lg:flex-col lg:w-64 lg:fixed lg:inset-y-0 bg-[#2d395e] border-r border-[#2A2D3E]">
           <div className="flex flex-col flex-1 min-h-0 pt-6">
             {/* Logo */}
             <Link to={createPageUrl('Home')} className="flex items-center gap-2 px-6 mb-8">
@@ -149,7 +149,7 @@ export default function Layout({ children, currentPageName }) {
         </aside>
 
         {/* Mobile Header for Dashboard */}
-        <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-[#0F1117] border-b border-[#2A2D3E]">
+        <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-[#607bca] border-b border-[#2A2D3E]">
           <div className="flex items-center justify-between px-4 h-16">
             <Link to={createPageUrl('Home')} className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#FF6633] to-[#E55A2B] flex items-center justify-center">
@@ -164,7 +164,7 @@ export default function Layout({ children, currentPageName }) {
 
           {/* Mobile Menu */}
           {mobileMenuOpen && (
-            <div className="bg-[#0F1117] border-b border-[#2A2D3E] px-4 pb-4">
+            <div className="bg-[#3b5191] border-b border-[#2A2D3E] px-4 pb-4">
               <nav className="space-y-1">
                 {filteredSidebarLinks.map((link) => {
                   const isActive = currentPageName === link.page;
@@ -201,7 +201,7 @@ export default function Layout({ children, currentPageName }) {
 
   // Public Layout
   return (
-    <div className="min-h-screen bg-[#0F1117] flex flex-col">
+    <div className="min-h-screen bg-[#455ca0] flex flex-col">
       {/* Header */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-[#0F1117]/95 backdrop-blur-md border-b border-[#2A2D3E]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

@@ -15,10 +15,12 @@ import {
 import { toast } from "sonner";
 
 export default function DashboardProfile() {
+
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
   const [categories, setCategories] = useState([]);
   const [selectedCategories, setSelectedCategories] = useState([]);
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -37,75 +39,116 @@ export default function DashboardProfile() {
   }, []);
 
   const loadData = async () => {
-    const { data: { user: userData } } = await supabase.auth.getUser();
-    if (!userData) return;
-    setUser(userData);
 
-    // Load profile
-    const { data: profiles } = await supabase
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
+    setUser(user);
+
+    /* -------------------- PROFILE -------------------- */
+
+    const { data: profileData, error } = await supabase
       .from("profiles")
       .select("*")
-      .eq("user_email", userData.email)
-      .limit(1);
+      .eq("user_id", user.id)
+      .maybeSingle();
 
-    if (profiles?.length > 0) {
-      const p = profiles[0];
-      setProfile(p);
+    if (profileData) {
+
+      setProfile(profileData);
+
       setFormData({
-        full_name: p.full_name || "",
-        phone_number: p.phone_number || "",
-        location: p.location || "",
-        bio: p.bio || "",
-        user_type: p.user_type || "client",
-        profile_image_url: p.profile_image_url || "",
+        full_name: profileData.full_name || "",
+        phone_number: profileData.phone_number || "",
+        location: profileData.location || "",
+        bio: profileData.bio || "",
+        user_type: profileData.user_type || "client",
+        profile_image_url: profileData.profile_image_url || "",
       });
 
-      // Load selected categories for provider
+      /* provider categories */
+
       const { data: relations } = await supabase
         .from("provider_categories")
         .select("category_id")
-        .eq("provider_id", p.id);
-      setSelectedCategories(relations.map((r) => r.category_id));
-    } else {
-      setFormData((prev) => ({ ...prev, full_name: userData.full_name || "" }));
+        .eq("provider_id", profileData.id);
+
+      if (relations) {
+        setSelectedCategories(relations.map((r) => r.category_id));
+      }
+
     }
 
-    // Load all categories
-    const { data: cats } = await supabase.from("categories").select("*").order("name");
+    /* -------------------- CATEGORIES -------------------- */
+
+    const { data: cats } = await supabase
+      .from("categories")
+      .select("*")
+      .order("name");
+
     setCategories(cats || []);
 
     setLoading(false);
   };
 
+  /* -------------------- IMAGE UPLOAD    user_email -------------------- */
+
   const handleImageUpload = async (e) => {
+
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file || !user) return;
 
     setUploading(true);
 
     const fileExt = file.name.split(".").pop();
-    const fileName = `${Date.now()}.${fileExt}`;
-    const { error } = await supabase.storage.from("profiles").upload(fileName, file);
+    const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+
+    const { error } = await supabase
+      .storage
+      .from("profiles")
+      .upload(fileName, file);
 
     if (error) {
-      toast.error("Upload failed");
+      toast.error("Image upload failed");
       setUploading(false);
       return;
     }
 
-    const { data: publicUrlData } = supabase.storage.from("profiles").getPublicUrl(fileName);
-    setFormData((prev) => ({ ...prev, profile_image_url: publicUrlData.publicUrl }));
-    setUploading(false);
+    const { data } = supabase
+      .storage
+      .from("profiles")
+      .getPublicUrl(fileName);
+
+    setFormData(prev => ({
+      ...prev,
+      profile_image_url: data.publicUrl
+    }));
+
     toast.success("Image uploaded");
+
+    setUploading(false);
   };
 
-  const handleCategoryToggle = (categoryId) => {
-    setSelectedCategories((prev) =>
-      prev.includes(categoryId) ? prev.filter((id) => id !== categoryId) : [...prev, categoryId]
+  /* -------------------- CATEGORY TOGGLE -------------------- */
+
+  const handleCategoryToggle = (id) => {
+    setSelectedCategories(prev =>
+      prev.includes(id)
+        ? prev.filter(c => c !== id)
+        : [...prev, id]
     );
   };
 
+  /* -------------------- SAVE PROFILE -------------------- */
+
   const handleSave = async () => {
+
+    if (!user) return;
+
     if (!formData.full_name) {
       toast.error("Please enter your name");
       return;
@@ -113,237 +156,319 @@ export default function DashboardProfile() {
 
     setSaving(true);
 
-    if (profile) {
-      // Update existing profile
-      await supabase
-        .from("profiles")
-        .update({ ...formData, user_email: user.email })
-        .eq("id", profile.id);
+    try {
 
-      // Update categories if provider
+      let profileId = profile?.id;
+
+      /* ---------- CREATE PROFILE ---------- */
+
+      if (!profile) {
+
+        const { data: newProfile, error } = await supabase
+          .from("profiles")
+          .insert({
+            ...formData,
+            user_id: user.id
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        setProfile(newProfile);
+
+        profileId = newProfile.id;
+
+        /* create wallet */
+
+        // await supabase.from("wallets").insert({
+        //   user_id: user.id,
+        //   balance: 0
+        // });
+
+        await supabase
+        .from("wallets")
+        .upsert(
+          { user_id: user.id, balance: 0 },
+          { onConflict: "user_id" }
+        );
+
+      }
+
+      /* ---------- UPDATE PROFILE ---------- */
+
+      else {
+
+        await supabase
+          .from("profiles")
+          .update(formData)
+          .eq("user_id", user.id);
+
+      }
+
+      /* ---------- PROVIDER CATEGORIES      setUser(user);---------- */
+
       if (formData.user_type === "provider") {
-        const { data: oldRelations } = await supabase
+
+        await supabase
           .from("provider_categories")
-          .select("*")
-          .eq("provider_id", profile.id);
+          .delete()
+          .eq("provider_id", profileId);
 
-        for (const rel of oldRelations) {
-          await supabase.from("provider_categories").delete().eq("id", rel.id);
+        if (selectedCategories.length > 0) {
+
+          const inserts = selectedCategories.map(catId => ({
+            provider_id: profileId,
+            category_id: catId
+          }));
+
+          await supabase
+            .from("provider_categories")
+            .insert(inserts);
+
         }
 
-        for (const catId of selectedCategories) {
-          await supabase.from("provider_categories").insert({
-            provider_id: profile.id,
-            category_id: catId,
-            provider_email: user.email,
-          });
-        }
       }
 
-      toast.success("Profile updated");
-    } else {
-      // Create new profile
-      const { data: newProfile } = await supabase
-        .from("profiles")
-        .insert({ ...formData, user_email: user.email })
-        .select()
-        .single();
-      setProfile(newProfile);
+      toast.success("Profile saved successfully");
 
-      // Create wallet
-      await supabase.from("wallets").insert({
-        user_id: newProfile.id,
-        user_email: user.email,
-        balance: 0,
-        available_balance: 0,
-        locked_balance: 0,
-      });
+    } catch (err) {
 
-      // Create category relations if provider
-      if (formData.user_type === "provider") {
-        for (const catId of selectedCategories) {
-          await supabase.from("provider_categories").insert({
-            provider_id: newProfile.id,
-            category_id: catId,
-            provider_email: user.email,
-          });
-        }
-      }
+      console.error(err);
+      toast.error("Failed to save profile");
 
-      toast.success("Profile created");
     }
 
     setSaving(false);
   };
 
+  /* -------------------- LOADING -------------------- */
+
   if (loading) {
     return (
-      <div className="p-6 lg:p-8">
-        <div className="max-w-2xl mx-auto">
-          <div className="animate-pulse space-y-6">
-            <div className="h-8 bg-[#2A2D3E] rounded w-48" />
-            <div className="card-dark p-8 space-y-6">
-              <div className="flex justify-center">
-                <div className="w-32 h-32 rounded-full bg-[#2A2D3E]" />
-              </div>
-              {[...Array(4)].map((_, i) => (
-                <div key={i} className="h-12 bg-[#2A2D3E] rounded" />
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
+      <div className="p-8 text-white">Loading profile...</div>
     );
   }
 
+  /* -------------------- UI -------------------- */
+
   return (
+
     <div className="p-6 lg:p-8">
+
       <div className="max-w-2xl mx-auto">
-        <h1 className="text-2xl lg:text-3xl font-bold text-white mb-8">Edit Profile</h1>
+
+        <h1 className="text-2xl lg:text-3xl font-bold text-white mb-8">
+          Edit Profile
+        </h1>
 
         <div className="card-dark p-6 lg:p-8">
-          {/* Avatar Upload */}
+
+          {/* Avatar */}
+
           <div className="flex flex-col items-center mb-8">
+
             <div className="relative">
-              <div className="w-32 h-32 rounded-full bg-gradient-to-br from-[#FF6633] to-[#E55A2B] p-1">
-                <div className="w-full h-full rounded-full overflow-hidden bg-[#1A1D2E]">
-                  {formData.profile_image_url ? (
-                    <img
-                      src={formData.profile_image_url}
-                      alt="Profile"
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <User className="w-12 h-12 text-gray-500" />
-                    </div>
-                  )}
-                </div>
-              </div>
-              <label className="absolute bottom-0 right-0 w-10 h-10 rounded-full bg-[#FF6633] flex items-center justify-center cursor-pointer hover:bg-[#E55A2B] transition-colors">
-                {uploading ? (
-                  <Loader2 className="w-5 h-5 text-white animate-spin" />
+
+              <div className="w-32 h-32 rounded-full overflow-hidden bg-[#1A1D2E]">
+
+                {formData.profile_image_url ? (
+
+                  <img
+                    src={formData.profile_image_url}
+                    alt="Profile"
+                    className="w-full h-full object-cover"
+                  />
+
                 ) : (
-                  <Camera className="w-5 h-5 text-white" />
+
+                  <div className="flex items-center justify-center w-full h-full">
+                    <User className="w-12 h-12 text-gray-500" />
+                  </div>
+
                 )}
+
+              </div>
+
+              <label className="absolute bottom-0 right-0 w-10 h-10 rounded-full bg-[#FF6633] flex items-center justify-center cursor-pointer">
+
+                {uploading
+                  ? <Loader2 className="animate-spin text-white" />
+                  : <Camera className="text-white" />
+                }
+
                 <input
                   type="file"
                   accept="image/*"
                   onChange={handleImageUpload}
                   className="hidden"
-                  disabled={uploading}
                 />
+
               </label>
+
             </div>
-            <p className="text-gray-500 text-sm mt-3">Click the camera icon to upload a photo</p>
+
           </div>
 
-          {/* Form Fields */}
+          {/* Name */}
+
           <div className="space-y-6">
-            <div>
-              <Label className="text-gray-400 mb-2 block">Full Name</Label>
-              <Input
-                value={formData.full_name}
-                onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                placeholder="Your full name"
-                className="input-dark"
-              />
-            </div>
 
             <div>
-              <Label className="text-gray-400 mb-2 block">Account Type</Label>
+
+              <Label className="text-gray-400">Full Name</Label>
+
+              <Input
+                value={formData.full_name}
+                onChange={e =>
+                  setFormData({ ...formData, full_name: e.target.value })
+                }
+                className="input-dark"
+              />
+
+            </div>
+
+            {/* User Type */}
+
+            <div>
+
+              <Label className="text-gray-400">Account Type</Label>
+
               <Select
                 value={formData.user_type}
-                onValueChange={(value) => setFormData({ ...formData, user_type: value })}
+                onValueChange={(v) =>
+                  setFormData({ ...formData, user_type: v })
+                }
               >
+
                 <SelectTrigger className="input-dark">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="bg-[#1A1D2E] border-[#2A2D3E]">
-                  <SelectItem value="client">Client - I want to hire services</SelectItem>
-                  <SelectItem value="provider">Provider - I offer services</SelectItem>
+
+                <SelectContent>
+
+                  <SelectItem value="client">
+                    Client
+                  </SelectItem>
+
+                  <SelectItem value="provider">
+                    Provider
+                  </SelectItem>
+
                 </SelectContent>
+
               </Select>
+
             </div>
 
-            <div>
-              <Label className="text-gray-400 mb-2 block">Phone Number</Label>
-              <div className="relative">
-                <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-                <Input
-                  value={formData.phone_number}
-                  onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })}
-                  placeholder="+256 700 000000"
-                  className="input-dark pl-12"
-                />
-              </div>
-            </div>
+            {/* Phone */}
 
             <div>
-              <Label className="text-gray-400 mb-2 block">Location</Label>
-              <div className="relative">
-                <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-                <Input
-                  value={formData.location}
-                  onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                  placeholder="e.g., Kampala, Uganda"
-                  className="input-dark pl-12"
-                />
-              </div>
+
+              <Label className="text-gray-400">Phone</Label>
+
+              <Input
+                value={formData.phone_number}
+                onChange={e =>
+                  setFormData({ ...formData, phone_number: e.target.value })
+                }
+                className="input-dark"
+              />
+
             </div>
 
+            {/* Location */}
+
             <div>
-              <Label className="text-gray-400 mb-2 block">Bio</Label>
+
+              <Label className="text-gray-400">Location</Label>
+
+              <Input
+                value={formData.location}
+                onChange={e =>
+                  setFormData({ ...formData, location: e.target.value })
+                }
+                className="input-dark"
+              />
+
+            </div>
+
+            {/* Bio */}
+
+            <div>
+
+              <Label className="text-gray-400">Bio</Label>
+
               <Textarea
                 value={formData.bio}
-                onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
-                placeholder="Tell us about yourself..."
-                className="input-dark min-h-[120px]"
+                onChange={e =>
+                  setFormData({ ...formData, bio: e.target.value })
+                }
+                className="input-dark"
               />
+
             </div>
 
-            {/* Categories (for providers) */}
+            {/* Categories */}
+
             {formData.user_type === "provider" && (
+
               <div>
-                <Label className="text-gray-400 mb-3 block">Service Categories</Label>
+
+                <Label className="text-gray-400 mb-2 block">
+                  Service Categories
+                </Label>
+
                 <div className="flex flex-wrap gap-2">
-                  {categories.map((cat) => (
+
+                  {categories.map(cat => (
+
                     <button
                       key={cat.id}
-                      type="button"
                       onClick={() => handleCategoryToggle(cat.id)}
-                      className={`px-4 py-2 rounded-xl text-sm transition-all ${
+                      type="button"
+                      className={`px-4 py-2 rounded-xl text-sm ${
                         selectedCategories.includes(cat.id)
                           ? "bg-[#FF6633] text-white"
-                          : "bg-[#0F1117] text-gray-400 border border-[#2A2D3E] hover:border-[#FF6633]/50"
+                          : "bg-[#0F1117] text-gray-400 border border-[#2A2D3E]"
                       }`}
                     >
                       {cat.name}
                     </button>
+
                   ))}
+
                 </div>
-                {categories.length === 0 && (
-                  <p className="text-gray-500 text-sm">No categories available</p>
-                )}
+
               </div>
+
             )}
 
-            <Button onClick={handleSave} disabled={saving} className="btn-primary w-full">
-              {saving ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <Save className="w-4 h-4 mr-2" />
-                  Save Profile
-                </>
-              )}
+            {/* Save */}
+
+            <Button
+              onClick={handleSave}
+              disabled={saving}
+              className="btn-primary w-full"
+            >
+
+              {saving
+                ? <Loader2 className="animate-spin mr-2" />
+                : <Save className="mr-2" />
+              }
+
+              Save Profile
+
             </Button>
+
           </div>
+
         </div>
+
       </div>
+
     </div>
+
   );
+
 }

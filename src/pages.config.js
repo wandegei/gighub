@@ -66,6 +66,7 @@ import Home from './pages/Home';
 import JobDetail from './pages/JobDetail';
 import JobPostingDetail from './pages/JobPostingDetail';
 import JobPostings from './pages/JobPostings';
+import Login from './pages/Login';   // 👈 ADD THIS
 import MapSearch from './pages/MapSearch';
 import Messages from './pages/Messages';
 import PostJob from './pages/PostJob';
@@ -74,7 +75,6 @@ import ProviderProfile from './pages/ProviderProfile';
 import Providers from './pages/Providers';
 import ServiceDetail from './pages/ServiceDetail';
 import __Layout from './Layout.jsx';
-
 
 export const PAGES = {
     "AIAssistant": AIAssistant,
@@ -96,6 +96,7 @@ export const PAGES = {
     "JobDetail": JobDetail,
     "JobPostingDetail": JobPostingDetail,
     "JobPostings": JobPostings,
+    "Login": Login,
     "MapSearch": MapSearch,
     "Messages": Messages,
     "PostJob": PostJob,
