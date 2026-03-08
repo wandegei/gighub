@@ -26,46 +26,69 @@ export default function Dashboard() {
   }, []);
 
   const loadData = async () => {
-    // Get authenticated user
-    const {
-      data: { user: currentUser },
-      error: userError,
-    } = await supabase.auth.getUser();
-    if (userError || !currentUser) {
-      window.location.href = createPageUrl("CompleteProfile"); // Redirect if not logged in
-      return;
+    try {
+      setLoading(true);
+
+      /* ---------- GET AUTH USER ---------- */
+      const {
+        data: { user: currentUser },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError || !currentUser) {
+        window.location.href = createPageUrl("CompleteProfile");
+        return;
+      }
+
+      setUser(currentUser);
+
+      /* ---------- LOAD PROFILE ---------- */
+      const { data: profileData, error: profileError } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("user_id", currentUser.id)
+        .maybeSingle();
+
+      if (profileError) {
+        console.error("Profile load error:", profileError);
+      }
+
+      setProfile(profileData);
+
+      /* ---------- LOAD WALLET ---------- */
+      const { data: walletData, error: walletError } = await supabase
+        .from("wallets")
+        .select("*")
+        .eq("user_id", currentUser.id)
+        .maybeSingle();
+
+      if (walletError) {
+        console.error("Wallet load error:", walletError);
+      }
+
+      setWallet(walletData);
+
+      /* ---------- LOAD JOBS ---------- */
+      const { data: jobsData, error: jobsError } = await supabase
+        .from("jobs")
+        .select("*")
+        .order("created_date", { ascending: false })
+        .limit(5);
+
+      if (jobsError) {
+        console.error("Jobs load error:", jobsError);
+      }
+
+      const userJobs = (jobsData || []).filter(
+        (j) =>
+          j.client_email === currentUser.email ||
+          j.provider_email === currentUser.email
+      );
+
+      setJobs(userJobs);
+    } catch (error) {
+      console.error("Dashboard load error:", error);
     }
-    setUser(currentUser);
-
-    // Load profile
-    const { data: profiles } = await supabase
-      .from("profiles")
-    .select("*")
-    .eq("user_id", currentUser.id)
-    .single();
-    if (profiles?.length > 0) setProfile(profiles[0]);
-
-    // Load wallet
-    const { data: wallets } = await supabase
-      .from("wallets")
-      .select("*")
-      .eq("user_id", currentUser.id)
-      .single();
-    if (wallets?.length > 0) setWallet(wallets[0]);
-
-    // Load jobs (latest 5)
-    const { data: allJobs } = await supabase
-      .from("jobs")
-      .select("*")
-      .order("created_date", { ascending: false })
-      .limit(5);
-
-    const userJobs = (allJobs || []).filter(
-      (j) =>
-        j.client_email === currentUser.email ||
-        j.provider_email === currentUser.email
-    );
-    setJobs(userJobs);
 
     setLoading(false);
   };
@@ -96,7 +119,7 @@ export default function Dashboard() {
 
   return (
     <div className="p-6 lg:p-8">
-      {/* Header  currentUser.email */}
+      {/* Header */}
       <div className="mb-8">
         <h1 className="text-2xl lg:text-3xl font-bold text-white mb-2">
           Welcome back, {profile?.full_name || "User"}
@@ -106,7 +129,7 @@ export default function Dashboard() {
         </p>
       </div>
 
-      {/* Stats Grid */}
+      {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
         {stats.map((stat, index) => (
           <div key={index} className="card-dark p-5">
@@ -115,6 +138,7 @@ export default function Dashboard() {
                 <p className="text-gray-500 text-sm mb-1">{stat.label}</p>
                 <p className="text-2xl font-bold text-white">{stat.value}</p>
               </div>
+
               <div
                 className={`w-12 h-12 rounded-xl ${stat.bgColor} flex items-center justify-center`}
               >
@@ -125,11 +149,12 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {/* Main Content Grid */}
+      {/* MAIN GRID */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Wallet Card */}
+        {/* Wallet */}
         <div className="lg:col-span-1">
           <WalletCard wallet={wallet} loading={loading} />
+
           <div className="mt-4 flex gap-3">
             <Link to={createPageUrl("DashboardWallet")} className="flex-1">
               <Button
@@ -143,11 +168,14 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Recent Jobs */}
+        {/* Jobs */}
         <div className="lg:col-span-2">
           <div className="card-dark p-6">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-lg font-semibold text-white">Recent Jobs</h2>
+              <h2 className="text-lg font-semibold text-white">
+                Recent Jobs
+              </h2>
+
               <Link
                 to={createPageUrl("DashboardJobs")}
                 className="flex items-center gap-1 text-[#FF6633] hover:text-[#E55A2B] text-sm"
@@ -173,18 +201,27 @@ export default function Dashboard() {
             ) : jobs.length > 0 ? (
               <div className="space-y-4">
                 {jobs.map((job) => (
-                  <JobCard key={job.id} job={job} userEmail={user?.email} />
+                  <JobCard
+                    key={job.id}
+                    job={job}
+                    userEmail={user?.email}
+                  />
                 ))}
               </div>
             ) : (
               <div className="text-center py-12">
                 <Briefcase className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-white mb-2">No jobs yet</h3>
+
+                <h3 className="text-lg font-medium text-white mb-2">
+                  No jobs yet
+                </h3>
+
                 <p className="text-gray-500 mb-4">
                   {profile?.user_type === "client"
                     ? "Start by hiring a service provider"
                     : "Wait for clients to hire you"}
                 </p>
+
                 {profile?.user_type === "client" && (
                   <Link to={createPageUrl("Providers")}>
                     <Button className="btn-primary">
