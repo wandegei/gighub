@@ -25,7 +25,7 @@ export default function CompleteProfile() {
     phone_number: "",
     location: "",
     bio: "",
-    profile_image_url: "",
+    avatar_url: "",
   });
 
   useEffect(() => {
@@ -77,7 +77,7 @@ export default function CompleteProfile() {
       if (error) throw error;
 
       const file_url = supabase.storage.from("profile-images").getPublicUrl(data.path).publicUrl;
-      setFormData(prev => ({ ...prev, profile_image_url: file_url }));
+      setFormData(prev => ({ ...prev, avatar_url: file_url }));
       toast.success("Photo uploaded");
     } catch (err) {
       console.error(err);
@@ -207,8 +207,8 @@ export default function CompleteProfile() {
                 <div className="relative">
                   <div className="w-28 h-28 rounded-full bg-gradient-to-br from-[#FF6633] to-[#E55A2B] p-1">
                     <div className="w-full h-full rounded-full overflow-hidden bg-[#1A1D2E]">
-                      {formData.profile_image_url
-                        ? <img src={formData.profile_image_url} alt="Profile" className="w-full h-full object-cover" />
+                      {formData.avatar_url
+                        ? <img src={formData.avatar_url} alt="Profile" className="w-full h-full object-cover" />
                         : <div className="w-full h-full flex items-center justify-center"><User className="w-10 h-10 text-gray-500" /></div>
                       }
                     </div>

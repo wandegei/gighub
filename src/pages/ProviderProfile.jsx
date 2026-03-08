@@ -242,9 +242,9 @@ export default function ProviderProfile() {
             <div className="flex-shrink-0">
               <div className="w-28 h-28 lg:w-36 lg:h-36 rounded-full p-1 bg-gradient-to-br from-[#7CB342] to-[#689F38] mx-auto md:mx-0">
                 <div className="w-full h-full rounded-full overflow-hidden bg-[#1A1D2E]">
-                  {provider.profile_image_url ? (
+                  {provider.avatar_url ? (
                     <img 
-                      src={provider.profile_image_url} 
+                      src={provider.avatar_url} 
                       alt={provider.full_name}
                       className="w-full h-full object-cover"
                     />

@@ -40,15 +40,17 @@ export default function Dashboard() {
     // Load profile
     const { data: profiles } = await supabase
       .from("profiles")
-      .select("*")
-      .eq("user_email", currentUser.email);
+    .select("*")
+    .eq("user_id", currentUser.id)
+    .single();
     if (profiles?.length > 0) setProfile(profiles[0]);
 
     // Load wallet
     const { data: wallets } = await supabase
       .from("wallets")
       .select("*")
-      .eq("user_email", currentUser.email);
+      .eq("user_id", currentUser.id)
+      .single();
     if (wallets?.length > 0) setWallet(wallets[0]);
 
     // Load jobs (latest 5)
@@ -94,7 +96,7 @@ export default function Dashboard() {
 
   return (
     <div className="p-6 lg:p-8">
-      {/* Header */}
+      {/* Header  currentUser.email */}
       <div className="mb-8">
         <h1 className="text-2xl lg:text-3xl font-bold text-white mb-2">
           Welcome back, {profile?.full_name || "User"}

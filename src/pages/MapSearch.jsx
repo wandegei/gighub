@@ -189,8 +189,8 @@ export default function MapSearch() {
                     >
                       <div className="flex items-start gap-3">
                         <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#FF6B3D] to-[#FF5722] flex items-center justify-center overflow-hidden flex-shrink-0">
-                          {provider.profile_image_url ? (
-                            <img src={provider.profile_image_url} alt="" className="w-full h-full object-cover" />
+                          {provider.avatar_url ? (
+                            <img src={provider.avatar_url} alt="" className="w-full h-full object-cover" />
                           ) : (
                             <span className="font-semibold" style={{ color: 'black' }}>
                               {provider.full_name?.charAt(0)}

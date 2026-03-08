@@ -121,7 +121,7 @@ export default function Layout({ children, currentPageName }) {
               })}
             </nav>
 
-            {/* User Info  profile.profile_image_url */}
+            {/* User Info  */}
             <div className="p-4 border-t border-[#2A2D3E]">
               <div className="flex items-center gap-3 p-3 rounded-xl bg-[#1A1D2E]">
                 <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#FF6633] to-[#E55A2B] flex items-center justify-center overflow-hidden">
@@ -242,8 +242,8 @@ export default function Layout({ children, currentPageName }) {
                   <DropdownMenuTrigger asChild>
                     <button className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-[#1A1D2E] transition-colors">
                       <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#FF6633] to-[#E55A2B] flex items-center justify-center overflow-hidden">
-                        {profile?.profile_image_url ? (
-                          <img src={profile.profile_image_url} alt="" className="w-full h-full object-cover" />
+                        {profile?.avatar_url ? (
+                          <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />
                         ) : (
                           <span className="text-white text-sm font-semibold">
                             {profile?.full_name?.charAt(0) || user?.email?.charAt(0)?.toUpperCase()}

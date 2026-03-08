@@ -286,8 +286,8 @@ export default function Discover() {
                     {provider && (
                       <div className="flex items-center gap-3 mb-3">
                         <div className="w-8 h-8 rounded-full overflow-hidden bg-[#2A2D3E]">
-                          {provider.profile_image_url ? (
-                            <img src={provider.profile_image_url} alt="" className="w-full h-full object-cover" />
+                          {provider.avatar_url ? (
+                            <img src={provider.avatar_url} alt="" className="w-full h-full object-cover" />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center text-white text-sm font-semibold bg-gradient-to-br from-[#FF6633] to-[#E55A2B]">
                               {provider.full_name?.charAt(0)}

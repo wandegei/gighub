@@ -31,7 +31,7 @@ export default function DashboardProfile() {
     location: "",
     bio: "",
     user_type: "client",
-    profile_image_url: "",
+    avatar_url: "",
   });
 
   useEffect(() => {
@@ -67,7 +67,7 @@ export default function DashboardProfile() {
         location: profileData.location || "",
         bio: profileData.bio || "",
         user_type: profileData.user_type || "client",
-        profile_image_url: profileData.profile_image_url || "",
+        avatar_url: profileData.avatar_url || "",
       });
 
       /* provider categories */
@@ -125,7 +125,7 @@ export default function DashboardProfile() {
 
     setFormData(prev => ({
       ...prev,
-      profile_image_url: data.publicUrl
+      avatar_url: data.publicUrl
     }));
 
     toast.success("Image uploaded");
@@ -145,102 +145,101 @@ export default function DashboardProfile() {
 
   /* -------------------- SAVE PROFILE -------------------- */
 
-  const handleSave = async () => {
+ const handleSave = async () => {
 
-    if (!user) return;
+  if (!user) return;
 
-    if (!formData.full_name) {
-      toast.error("Please enter your name");
-      return;
+  if (!formData.full_name) {
+    toast.error("Please enter your name");
+    return;
+  }
+
+  setSaving(true);
+
+  try {
+
+    let profileId = profile?.id;
+
+    /* ---------- CREATE PROFILE ---------- */
+
+    if (!profile) {
+
+      const { data: newProfile, error } = await supabase
+        .from("profiles")
+        .insert({
+          ...formData,
+          user_id: user.id,
+          user_email: user.email
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setProfile(newProfile);
+
+      profileId = newProfile.id;
+
+      /* create   profileData */
+
+      await supabase
+      .from("wallets")
+      .upsert(
+        { user_id: user.id, balance: 0 },
+        { onConflict: "user_id" }
+      );
+
     }
 
-    setSaving(true);
+    /* ---------- UPDATE PROFILE ---------- */
 
-    try {
+    else {
 
-      let profileId = profile?.id;
+      await supabase
+        .from("profiles")
+        .update(formData)
+        .eq("user_id", user.id);
 
-      /* ---------- CREATE PROFILE ---------- */
+    }
 
-      if (!profile) {
+    /* ---------- PROVIDER CATEGORIES ---------- */
 
-        const { data: newProfile, error } = await supabase
-          .from("profiles")
-          .insert({
-            ...formData,
-            user_id: user.id
-          })
-          .select()
-          .single();
+    if (formData.user_type === "provider") {
 
-        if (error) throw error;
+      await supabase
+        .from("provider_categories")
+        .delete()
+        .eq("provider_id", profileId);
 
-        setProfile(newProfile);
+      if (selectedCategories.length > 0) {
 
-        profileId = newProfile.id;
-
-        /* create wallet */
-
-        // await supabase.from("wallets").insert({
-        //   user_id: user.id,
-        //   balance: 0
-        // });
-
-        await supabase
-        .from("wallets")
-        .upsert(
-          { user_id: user.id, balance: 0 },
-          { onConflict: "user_id" }
-        );
-
-      }
-
-      /* ---------- UPDATE PROFILE ---------- */
-
-      else {
-
-        await supabase
-          .from("profiles")
-          .update(formData)
-          .eq("user_id", user.id);
-
-      }
-
-      /* ---------- PROVIDER CATEGORIES      setUser(user);---------- */
-
-      if (formData.user_type === "provider") {
+        const inserts = selectedCategories.map(catId => ({
+          provider_id: profileId,
+          category_id: catId
+        }));
 
         await supabase
           .from("provider_categories")
-          .delete()
-          .eq("provider_id", profileId);
-
-        if (selectedCategories.length > 0) {
-
-          const inserts = selectedCategories.map(catId => ({
-            provider_id: profileId,
-            category_id: catId
-          }));
-
-          await supabase
-            .from("provider_categories")
-            .insert(inserts);
-
-        }
+          .insert(inserts);
 
       }
 
-      toast.success("Profile saved successfully");
-
-    } catch (err) {
-
-      console.error(err);
-      toast.error("Failed to save profile");
-
     }
 
-    setSaving(false);
-  };
+    toast.success("Profile saved successfully");
+
+    /* ✅ RELOAD PROFILE DATA AFTER SAVE */
+    await loadData();
+
+  } catch (err) {
+
+    console.error(err);
+    toast.error("Failed to save profile");
+
+  }
+
+  setSaving(false);
+};
 
   /* -------------------- LOADING -------------------- */
 
@@ -272,10 +271,10 @@ export default function DashboardProfile() {
 
               <div className="w-32 h-32 rounded-full overflow-hidden bg-[#1A1D2E]">
 
-                {formData.profile_image_url ? (
+                {formData.avatar_url ? (
 
                   <img
-                    src={formData.profile_image_url}
+                    src={formData.avatar_url}
                     alt="Profile"
                     className="w-full h-full object-cover"
                   />

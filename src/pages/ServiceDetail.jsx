@@ -401,8 +401,8 @@ export default function ServiceDetail() {
                 <div className="flex items-center gap-4 mb-4">
                   <div className="w-16 h-16 rounded-full p-0.5 bg-gradient-to-br from-[#7CB342] to-[#689F38]">
                     <div className="w-full h-full rounded-full overflow-hidden bg-[#1A1D2E]">
-                      {provider.profile_image_url ? (
-                        <img src={provider.profile_image_url} alt="" className="w-full h-full object-cover" />
+                      {provider.avatar_url ? (
+                        <img src={provider.avatar_url} alt="" className="w-full h-full object-cover" />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#FF6633] to-[#E55A2B]">
                           <span className="text-xl font-bold text-white">{provider.full_name?.charAt(0)}</span>

@@ -11,9 +11,9 @@ export default function ProviderCard({ provider }) {
         <div className="relative mb-4">
           <div className="w-24 h-24 rounded-full p-1 bg-gradient-to-br from-[#7CB342] to-[#689F38]">
             <div className="w-full h-full rounded-full overflow-hidden bg-[#1A1D2E]">
-              {provider.profile_image_url ? (
+              {provider.avatar_url ? (
                 <img 
-                  src={provider.profile_image_url} 
+                  src={provider.avatar_url} 
                   alt={provider.full_name}
                   className="w-full h-full object-cover"
                 />

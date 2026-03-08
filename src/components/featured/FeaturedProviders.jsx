@@ -119,9 +119,9 @@ export default function FeaturedProviders() {
 
           <div className="relative mb-4">
             <div className="w-24 h-24 rounded-full mx-auto overflow-hidden border-4 border-[#FF6B3D]">
-              {provider.profile_image_url ? (
+              {provider.avatar_url ? (
                 <img
-                  src={provider.profile_image_url}
+                  src={provider.avatar_url}
                   alt={provider.full_name}
                   className="w-full h-full object-cover"
                 />
