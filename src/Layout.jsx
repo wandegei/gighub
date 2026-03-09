@@ -313,36 +313,72 @@ export default function Layout({ children, currentPageName }) {
 
           {/* Mobile Nav  profile */}
           {mobileMenuOpen && (
-            <div className="md:hidden py-4 border-t border-[#2A2D3E]">
-              <nav className="flex flex-col gap-2">
-                <Link 
-                  to={createPageUrl('Home')} 
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="px-4 py-2 text-gray-400 hover:text-white"
-                >
-                  Home
-                </Link>
-                <Link 
-                  to={createPageUrl('Categories')} 
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="px-4 py-2 text-gray-400 hover:text-white"
-                >
-                  Categories
-                </Link>
-                <Link 
-                  to={createPageUrl('Providers')} 
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="px-4 py-2 text-gray-400 hover:text-white"
-                >
-                  Providers
-                </Link>
-              </nav>
-            </div>
-          )}
+  <div className="md:hidden py-4 border-t border-[#2A2D3E]">
+    <nav className="flex flex-col gap-2">
+
+      <Link 
+        to={createPageUrl('Home')}
+        onClick={() => setMobileMenuOpen(false)}
+        className="px-4 py-2 text-gray-400 hover:text-white"
+      >
+        Home
+      </Link>
+
+      <Link 
+        to={createPageUrl('Discover')}
+        onClick={() => setMobileMenuOpen(false)}
+        className="px-4 py-2 text-gray-400 hover:text-white"
+      >
+        Discover
+      </Link>
+
+      <Link 
+        to={createPageUrl('MapSearch')}
+        onClick={() => setMobileMenuOpen(false)}
+        className="px-4 py-2 text-gray-400 hover:text-white"
+      >
+        Map Search
+      </Link>
+
+      <Link 
+        to={createPageUrl('JobPostings')}
+        onClick={() => setMobileMenuOpen(false)}
+        className="px-4 py-2 text-gray-400 hover:text-white"
+      >
+        Find Jobs
+      </Link>
+
+      <Link 
+        to={createPageUrl('Messages')}
+        onClick={() => setMobileMenuOpen(false)}
+        className="px-4 py-2 text-gray-400 hover:text-white"
+      >
+        Messages
+      </Link>
+
+      <Link 
+        to={createPageUrl('Categories')}
+        onClick={() => setMobileMenuOpen(false)}
+        className="px-4 py-2 text-gray-400 hover:text-white"
+      >
+        Categories
+      </Link>
+
+      <Link 
+        to={createPageUrl('Providers')}
+        onClick={() => setMobileMenuOpen(false)}
+        className="px-4 py-2 text-gray-400 hover:text-white"
+      >
+        Providers
+      </Link>
+
+    </nav>
+  </div>
+)}
         </div>
       </header>
 
-      {/* Main Content */}
+      {/* Main Content   */}
       <main className="flex-1 pt-16 lg:pt-20">
         {children}
       </main>
