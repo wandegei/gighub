@@ -26,14 +26,15 @@ export default function AIAssistant() {
       setUser(supaUser);
 
       // Fetch provider profile from Supabase 'profiles' table
-      const { data: profiles } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("email", supaUser.email);
+      const { data: profileData } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("user_id", supaUser.id)
+      .maybeSingle();
 
-      if (profiles && profiles.length > 0) {
-        setProfile(profiles[0]);
-      }
+    if (profileData) {
+      setProfile(profileData);
+    }
 
       // Initial assistant message
       setMessages([
@@ -70,7 +71,7 @@ How can I help you today?`
 The user is ${profile?.full_name || "a provider"} (${profile?.user_type || "provider"}). 
 Provide practical, actionable advice specific to the Ugandan market and service industry.`;
 
-      // Replace this with your LLM call
+      // Replace this with your LLM call  user.email
       const response = await fetch("/api/ai-assistant", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

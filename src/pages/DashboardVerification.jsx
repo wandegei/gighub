@@ -39,23 +39,23 @@ export default function DashboardVerification() {
     setUser(userData);
 
     // Load profile
-    const { data: profiles } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("user_email", userData.email)
-      .limit(1);
-    if (profiles?.length > 0) {
-      setProfile(profiles[0]);
+   const { data: profileData } = await supabase
+  .from("profiles")
+  .select("*")
+  .eq("user_id", userData.id)
+  .maybeSingle();
 
-      // Load verifications
-      const { data: verifs } = await supabase
-        .from("verifications")
-        .select("*")
-        .eq("provider_id", profiles[0].id)
-        .order("created_date", { ascending: false });
-      setVerifications(verifs || []);
-    }
+if (profileData) {
+  setProfile(profileData);
 
+  const { data: verifs } = await supabase
+    .from("verifications")
+    .select("*")
+    .eq("provider_id", profileData.id)
+    .order("created_date", { ascending: false });
+
+  setVerifications(verifs || []);
+}
     setLoading(false);
   };
 
@@ -235,7 +235,7 @@ export default function DashboardVerification() {
           </form>
         </div>
 
-        {/* Your Verifications */}
+        {/* Your Verifications userData.email */}
         <div className="card-dark p-6">
           <h2 className="text-xl font-semibold text-white mb-6">Your Verifications</h2>
           {verifications.length > 0 ? (

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { 
@@ -68,20 +69,21 @@ export default function DashboardServices() {
     if (!userData) return;
     setUser(userData);
 
-    // Load profile
-    const { data: profiles } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("user_email", userData.email)
-      .limit(1);
-    if (profiles?.length > 0) {
-      setProfile(profiles[0]);
+    // Load profile   .eq("provider_id", profiles[0].id);
+    const { data: profileData } = await supabase
+  .from("profiles")
+  .select("*")
+  .eq("user_id", userData.id)
+  .maybeSingle();
+
+if (profileData) {
+  setProfile(profileData);
 
       // Load services
       const { data: svcs } = await supabase
         .from("services")
         .select("*")
-        .eq("provider_id", profiles[0].id);
+        .eq("provider_id", profileData.id);
       setServices(svcs || []);
     }
 
@@ -233,7 +235,7 @@ export default function DashboardServices() {
 
   return (
     <div className="p-6 lg:p-8">
-      {/* Header */}
+      {/* Header  userData.email */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div>
           <h1 className="text-2xl lg:text-3xl font-bold text-white mb-2">Service Packages</h1>

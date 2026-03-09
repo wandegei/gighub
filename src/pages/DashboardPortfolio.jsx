@@ -69,22 +69,22 @@ export default function DashboardPortfolio() {
     if (!user) return;
 
     // Load profile
-    const { data: profiles } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("user_email", user.email)
-      .limit(1);
+    const { data: profileData } = await supabase
+  .from("profiles")
+  .select("*")
+  .eq("user_id", user.id)
+  .maybeSingle();
 
-    if (profiles?.length > 0) {
-      setProfile(profiles[0]);
+if (profileData) {
+  setProfile(profileData);
 
-      // Load portfolio items
-      const { data: items } = await supabase
-        .from("portfolio_items")
-        .select("*")
-        .eq("provider_id", profiles[0].id);
-      setPortfolio(items || []);
-    }
+  const { data: items } = await supabase
+    .from("portfolio_items")
+    .select("*")
+    .eq("provider_id", profileData.id);
+
+  setPortfolio(items || []);
+}
 
     setLoading(false);
   };
@@ -386,7 +386,7 @@ export default function DashboardPortfolio() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
+      {/* Delete Confirmation Dialog   user.email*/}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent className="bg-[#1A1D2E] border-[#2A2D3E]">
           <AlertDialogHeader>
