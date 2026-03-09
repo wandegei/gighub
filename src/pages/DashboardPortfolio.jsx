@@ -68,7 +68,7 @@ export default function DashboardPortfolio() {
     } = await supabase.auth.getUser();
     if (!user) return;
 
-    // Load profile
+    // Load profile   const fileName = `${Date.now()}.${fileExt}`;
     const { data: profileData } = await supabase
   .from("profiles")
   .select("*")
@@ -97,7 +97,7 @@ if (profileData) {
 
     // Upload file to Supabase Storage
     const fileExt = file.name.split(".").pop();
-    const fileName = `${Date.now()}.${fileExt}`;
+    const fileName = `portfolio/${Date.now()}.${fileExt}`;
     const { data, error } = await supabase.storage
       .from("portfolio")
       .upload(fileName, file);

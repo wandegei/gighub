@@ -35,13 +35,19 @@ export default function Discover() {
   }, []);
 
   const loadData = async () => {
-    const [servicesData, categoriesData, providersData, reviewsData, skillsData] = await Promise.all([
-      supabase.from("services").select("*").eq("is_active", true).order("created_date", { ascending: false }),
-      supabase.from("categories").select("*").order("name"),
-      supabase.from("profiles").select("*").eq("user_type", "provider"),
-      supabase.from("reviews").select("*"),
-      supabase.from("skills").select("*")
-    ]);
+    const [servicesData, categoriesData, providersData, reviewsData, skillsData] =
+  await Promise.all([
+    supabase
+      .from("services")
+      .select("*")
+      .eq("is_active", true)
+      .order("created_at", { ascending: false }),
+
+    supabase.from("categories").select("*").order("name"),
+    supabase.from("profiles").select("*").eq("user_type", "provider"),
+    supabase.from("reviews").select("*"),
+    supabase.from("skills").select("*"),
+  ]);
 
     setServices(servicesData.data || []);
     setCategories(categoriesData.data || []);
@@ -49,7 +55,7 @@ export default function Discover() {
     setReviews(reviewsData.data || []);
     setSkills(skillsData.data || []);
 
-    // Calculate recommended based on ratings
+    // Calculate recommended based on ratings   !searchQuery && !categoryFilter
     const servicesWithRating = (servicesData.data || []).map(s => {
       const rating = getProviderRating(s.provider_id, reviewsData.data || []);
       return { ...s, avgRating: parseFloat(rating.avg) || 0, reviewCount: rating.count };
@@ -118,7 +124,7 @@ export default function Discover() {
           <p className="text-[#9BA3AF] text-lg">Find the perfect service provider for your needs</p>
         </div>
 
-        {/* Recommended Section */}
+        {/* Recommended Section   .eq("is_active", true)*/}
         {!searchQuery && !categoryFilter && recommendedServices.length > 0 && (
           <div className="mb-10">
             <div className="flex items-center gap-2 mb-4">
