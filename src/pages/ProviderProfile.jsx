@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '../utils';
-import { supabase } from '@/lib/supabaseClient'; // Make sure you have Supabase client setup
+import { supabase } from '@/lib/supabaseClient'; // Make sure you have Supabase client setup  format(new Date(review.created_date), 'MMM d, yyyy')
 import { 
   ChevronLeft, 
   MapPin, 
@@ -25,6 +25,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from '@/components/ui/input';
@@ -546,7 +547,7 @@ export default function ProviderProfile() {
                           <div>
                             <p className="text-white font-medium">{review.client_name || 'Anonymous'}</p>
                             <p className="text-gray-600 text-xs">
-                              {format(new Date(review.created_date), 'MMM d, yyyy')}
+                              {format(new Date(review.created_at), 'MMM d, yyyy')}
                             </p>
                           </div>
                         </div>

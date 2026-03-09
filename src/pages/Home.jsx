@@ -1,390 +1,451 @@
-import React, { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
-import { createPageUrl } from '../utils'
-import { supabase } from '@/lib/supabaseClient'
-import { Search, ArrowRight, Shield, Wallet, Users, ChevronRight, Briefcase, ChevronLeft } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import CategoryCard from '../components/categories/CategoryCard'
-import FeaturedProviders from '../components/featured/FeaturedProviders'
+import React, { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
+import { createPageUrl } from "../utils";
+import { supabase } from "@/lib/supabaseClient";
+
+import {
+  Search,
+  ArrowRight,
+  Shield,
+  Wallet,
+  Users,
+  ChevronRight,
+  ChevronLeft,
+  MapPin,
+} from "lucide-react";
+
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+
+import CategoryCard from "../components/categories/CategoryCard";
+import FeaturedProviders from "../components/featured/FeaturedProviders";
 
 export default function Home() {
 
-const [categories, setCategories] = useState([])
-const [loading, setLoading] = useState(true)
-const [searchQuery, setSearchQuery] = useState('')
-const [currentSlide, setCurrentSlide] = useState(0)
-
-useEffect(() => {
-loadCategories()
-}, [])
-
-const slides = [
-{
-image:"https://images.unsplash.com/photo-1581092335397-9583eb92d232",
-title:"Find Skilled Professionals",
-subtitle:"Connect with trusted service providers instantly"
-},
-{
-image:"https://images.unsplash.com/photo-1600585154340-be6161a56a0c",
-title:"Hire Builders For Any Project",
-subtitle:"Get quality work from verified professionals"
-},
-{
-image:"https://images.unsplash.com/photo-1581578731548-c64695cc6952",
-title:"Professional Cleaning Services",
-subtitle:"Reliable cleaners ready to help"
-},
-{
-image:"https://images.unsplash.com/photo-1503951914875-452162b0f3f1",
-title:"Barbers & Personal Services",
-subtitle:"Book experienced professionals near you"
-}
-]
+  const [categories, setCategories] = useState([]);
+  const [jobs, setJobs] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const [searchQuery, setSearchQuery] = useState("");
+  const [currentSlide, setCurrentSlide] = useState(0);
+
+  /* HERO SLIDES */
+
+  const slides = [
+    {
+      image: "https://images.unsplash.com/photo-1581092335397-9583eb92d232",
+      title: "Find Skilled Professionals",
+      subtitle: "Connect with trusted service providers instantly",
+    },
+    {
+      image: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c",
+      title: "Hire Builders For Any Project",
+      subtitle: "Get quality work from verified professionals",
+    },
+    {
+      image: "https://images.unsplash.com/photo-1581578731548-c64695cc6952",
+      title: "Professional Cleaning Services",
+      subtitle: "Reliable cleaners ready to help",
+    },
+    {
+      image: "https://images.unsplash.com/photo-1503951914875-452162b0f3f1",
+      title: "Barbers & Personal Services",
+      subtitle: "Book experienced professionals near you",
+    },
+  ];
+
+  /* LOAD DATA */
+
+  useEffect(() => {
+    loadCategories();
+    loadJobs();
+  }, []);
+
+  const loadCategories = async () => {
+
+    const { data, error } = await supabase
+      .from("categories")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(8);
+
+    if (error) console.error(error);
 
-/* AUTO SLIDER */
+    setCategories(data || []);
+    setLoading(false);
+  };
 
-useEffect(()=>{
+  const loadJobs = async () => {
 
-const interval=setInterval(()=>{
-setCurrentSlide(prev=>(prev+1)%slides.length)
-},5000)
+    const { data, error } = await supabase
+      .from("jobs")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(6);
 
-return()=>clearInterval(interval)
+    if (error) console.error(error);
 
-},[])
+    setJobs(data || []);
+  };
 
-/* CONTROLS */
+  /* AUTO SLIDER */
 
-const nextSlide=()=>{
-setCurrentSlide(prev=>(prev+1)%slides.length)
-}
+  useEffect(() => {
 
-const prevSlide=()=>{
-setCurrentSlide(prev=>prev===0?slides.length-1:prev-1)
-}
+    const interval = setInterval(() => {
+      setCurrentSlide((prev) => (prev + 1) % slides.length);
+    }, 5000);
 
-const loadCategories=async()=>{
+    return () => clearInterval(interval);
 
-const {data,error}=await supabase
-.from('categories')
-.select('*')
-.order('created_at',{ascending:false})
-.limit(8)
+  }, []);
 
-if(error){
-console.error(error)
-}else{
-setCategories(data)
-}
+  const nextSlide = () => {
+    setCurrentSlide((prev) => (prev + 1) % slides.length);
+  };
 
-setLoading(false)
+  const prevSlide = () => {
+    setCurrentSlide((prev) => (prev === 0 ? slides.length - 1 : prev - 1));
+  };
 
-}
+  /* SEARCH */
 
-const features=[
-{
-icon:Shield,
-title:'Secure Escrow',
-description:'Your payment stays protected until the job is completed'
-},
-{
-icon:Users,
-title:'Verified Providers',
-description:'Connect with trusted professionals in your area'
-},
-{
-icon:Wallet,
-title:'Easy Payments',
-description:'Pay easily with secure mobile payment systems'
-}
-]
+  const handleSearch = () => {
 
-return (
+    if (!searchQuery.trim()) return;
 
-<div className="min-h-screen bg-gray-50">
+    window.location.href = createPageUrl(
+      `Categories?search=${searchQuery}`
+    );
+  };
 
-{/* HERO */}
+  const features = [
+    {
+      icon: Shield,
+      title: "Secure Escrow",
+      description: "Your payment stays protected until the job is completed",
+    },
+    {
+      icon: Users,
+      title: "Verified Providers",
+      description: "Connect with trusted professionals in your area",
+    },
+    {
+      icon: Wallet,
+      title: "Easy Payments",
+      description: "Pay easily with secure mobile payment systems",
+    },
+  ];
 
-<section className="relative h-[90vh] overflow-hidden">
+  return (
 
-{slides.map((slide,index)=>(
+    <div className="min-h-screen bg-gray-50">
 
-<div
-key={index}
-className={`absolute inset-0 transition-opacity duration-1000 ${index===currentSlide?'opacity-100':'opacity-0'}`}
->
+      {/* HERO */}
 
-<img src={slide.image} className="w-full h-full object-cover"/>
+      <section className="relative h-[90vh] overflow-hidden">
 
-<div className="absolute inset-0 bg-black/40"/>
+        {slides.map((slide, index) => (
 
-</div>
+          <div
+            key={index}
+            className={`absolute inset-0 transition-opacity duration-1000 ${
+              index === currentSlide ? "opacity-100" : "opacity-0"
+            }`}
+          >
 
-))}
+            <img
+              src={slide.image}
+              alt={slide.title}
+              loading="lazy"
+              className="w-full h-full object-cover"
+            />
 
-{/* HERO CONTENT */}
+            <div className="absolute inset-0 bg-black/40" />
 
-<div className="relative z-10 h-full flex items-center justify-center">
+          </div>
 
-<div className="max-w-3xl text-center px-6">
+        ))}
 
-<h1 className="text-5xl font-bold text-white mb-6">
-{slides[currentSlide].title}
-</h1>
+        {/* HERO CONTENT */}
 
-<p className="text-xl text-gray-200 mb-10">
-{slides[currentSlide].subtitle}
-</p>
+        <div className="relative z-10 h-full flex items-center justify-center">
 
-{/* SEARCH */}
+          <div className="max-w-3xl text-center px-6">
 
-<div className="flex flex-col sm:flex-row gap-3 max-w-xl mx-auto mb-8">
+            <h1 className="text-5xl font-bold text-white mb-6">
+              {slides[currentSlide].title}
+            </h1>
 
-<div className="relative flex-1">
+            <p className="text-xl text-gray-200 mb-10">
+              {slides[currentSlide].subtitle}
+            </p>
 
-<Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400"/>
+            {/* SEARCH */}
 
-<Input
-value={searchQuery}
-onChange={(e)=>setSearchQuery(e.target.value)}
-placeholder="Search services..."
-className="bg-white text-black pl-12 h-14 rounded-xl"
-/>
+            <div className="flex flex-col sm:flex-row gap-3 max-w-xl mx-auto mb-8">
 
-</div>
+              <div className="relative flex-1">
 
-<Link to={createPageUrl(`Categories${searchQuery?`?search=${searchQuery}`:''}`)}>
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
 
-<Button className="h-14 px-8 bg-[#FF6633] hover:bg-[#ff5722]">
+                <Input
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search services..."
+                  className="bg-white text-black pl-12 h-14 rounded-xl"
+                />
 
-Search
-<ArrowRight className="ml-2 w-5 h-5"/>
+              </div>
 
-</Button>
+              <Button
+                onClick={handleSearch}
+                className="h-14 px-8 bg-[#FF6633] hover:bg-[#ff5722]"
+              >
+                Search
+                <ArrowRight className="ml-2 w-5 h-5" />
+              </Button>
 
-</Link>
+            </div>
 
-</div>
+            {/* HERO BUTTONS */}
 
-{/* HERO ACTION BUTTONS */}
+            <div className="flex justify-center gap-4 mb-8">
 
-<div className="flex justify-center gap-4 mb-8">
+              <Link to={createPageUrl("Categories")}>
+                <Button className="bg-[#FF6633] text-white px-6 py-3">
+                  Find a Service
+                </Button>
+              </Link>
 
-<Button className="bg-[#FF6633] text-white px-6 py-3">
-Find a Service
-</Button>
+              {/* <Link to={createPageUrl("PostJob")}>
+                <Button className="bg-white text-black px-6 py-3">
+                  Post a Job
+                </Button>
+              </Link> */}
 
-<Button className="bg-white text-black px-6 py-3">
-Post a Job
-</Button>
+            </div>
 
-</div>
+          </div>
 
-{/* POPULAR */}
+        </div>
 
-<div className="flex flex-wrap justify-center gap-3">
+        {/* SLIDER ARROWS */}
 
-{['Mechanics','Builders','Cleaners','Barbers'].map(cat=>(
+        <button
+          onClick={prevSlide}
+          className="absolute left-6 top-1/2 -translate-y-1/2 bg-black/40 p-3 rounded-full text-white"
+        >
+          <ChevronLeft size={26} />
+        </button>
 
-<Link
-key={cat}
-to={createPageUrl(`CategoryProviders?slug=${cat.toLowerCase()}`)}
-className="px-4 py-2 rounded-full bg-white text-gray-800 shadow hover:bg-gray-100"
->
+        <button
+          onClick={nextSlide}
+          className="absolute right-6 top-1/2 -translate-y-1/2 bg-black/40 p-3 rounded-full text-white"
+        >
+          <ChevronRight size={26} />
+        </button>
 
-{cat}
+      </section>
 
-</Link>
+      {/* TRUST STATS */}
 
-))}
+      <section className="py-12 bg-white border-y">
 
-</div>
+        <div className="max-w-6xl mx-auto grid grid-cols-3 text-center">
 
-</div>
+          <div>
+            <h3 className="text-3xl font-bold text-[#FF6633]">2000+</h3>
+            <p className="text-gray-600">Verified Providers</p>
+          </div>
 
-</div>
+          <div>
+            <h3 className="text-3xl font-bold text-[#FF6633]">10K+</h3>
+            <p className="text-gray-600">Jobs Completed</p>
+          </div>
 
-{/* ARROWS */}
+          <div>
+            <h3 className="text-3xl font-bold text-[#FF6633]">35+</h3>
+            <p className="text-gray-600">Service Categories</p>
+          </div>
 
-<button
-onClick={prevSlide}
-className="absolute left-6 top-1/2 -translate-y-1/2 bg-black/40 p-3 rounded-full text-white"
->
-<ChevronLeft size={26}/>
-</button>
+        </div>
 
-<button
-onClick={nextSlide}
-className="absolute right-6 top-1/2 -translate-y-1/2 bg-black/40 p-3 rounded-full text-white"
->
-<ChevronRight size={26}/>
-</button>
+      </section>
 
-</section>
+      {/* JOBS */}
 
-{/* LIVE JOBS */}
+      <section className="py-16 bg-white">
 
-<section className="py-16 bg-white">
+        <div className="max-w-7xl mx-auto px-6">
 
-<div className="max-w-7xl mx-auto px-6">
+          <h2 className="text-3xl font-bold text-gray-900 mb-10 text-center">
+            Latest Jobs Posted
+          </h2>
 
-<h2 className="text-3xl font-bold text-gray-900 mb-10 text-center">
-Latest Jobs Posted
-</h2>
+          <div className="grid md:grid-cols-3 gap-6">
 
-<div className="grid md:grid-cols-3 gap-6">
+            {jobs.map((job) => (
 
-{[
-{title:"Fix leaking sink",price:"$40"},
-{title:"House cleaning",price:"$70"},
-{title:"Home haircut service",price:"$20"}
-].map((job,index)=>(
+              <div key={job.id} className="bg-gray-50 p-6 rounded-xl shadow-sm">
 
-<div key={index} className="bg-gray-50 p-6 rounded-xl shadow-sm">
+                <h3 className="font-semibold text-lg text-gray-900 mb-2">
+                  {job.title}
+                </h3>
 
-<h3 className="font-semibold text-lg text-gray-900 mb-2">
-{job.title}
-</h3>
+                <p className="text-gray-600 mb-4">
+                  Budget: ${job.budget}
+                </p>
 
-<p className="text-gray-600 mb-4">
-Budget: {job.price}
-</p>
+                <Link to={createPageUrl(`JobDetails?id=${job.id}`)}>
+                  <button className="text-[#FF6633] font-medium">
+                    View Job
+                  </button>
+                </Link>
 
-<button className="text-[#FF6633] font-medium">
-View Job
-</button>
+              </div>
 
-</div>
+            ))}
 
-))}
+          </div>
 
-</div>
+        </div>
 
-</div>
+      </section>
 
-</section>
+      {/* FEATURES */}
 
-{/* FEATURES */}
+      <section className="py-16 bg-gray-100">
 
-<section className="py-16 bg-gray-100">
+        <div className="max-w-7xl mx-auto px-6">
 
-<div className="max-w-7xl mx-auto px-6">
+          <div className="grid md:grid-cols-3 gap-6">
 
-<div className="grid md:grid-cols-3 gap-6">
+            {features.map((feature, index) => (
 
-{features.map((feature,index)=>(
+              <div key={index} className="bg-white shadow-md rounded-2xl p-6 text-center">
 
-<div key={index} className="bg-white shadow-md rounded-2xl p-6 text-center">
+                <div className="w-14 h-14 rounded-2xl bg-[#FF6633]/10 flex items-center justify-center mx-auto mb-4">
 
-<div className="w-14 h-14 rounded-2xl bg-[#FF6633]/10 flex items-center justify-center mx-auto mb-4">
+                  <feature.icon className="w-7 h-7 text-[#FF6633]" />
 
-<feature.icon className="w-7 h-7 text-[#FF6633]"/>
+                </div>
 
-</div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  {feature.title}
+                </h3>
 
-<h3 className="text-lg font-semibold text-gray-900 mb-2">
-{feature.title}
-</h3>
+                <p className="text-gray-600 text-sm">
+                  {feature.description}
+                </p>
 
-<p className="text-gray-600 text-sm">
-{feature.description}
-</p>
+              </div>
 
-</div>
+            ))}
 
-))}
+          </div>
 
-</div>
+        </div>
 
-</div>
+      </section>
 
-</section>
+      {/* FEATURED PROVIDERS */}
 
-{/* FEATURED PROVIDERS */}
+      <section className="py-16 bg-white">
 
-<section className="py-16 bg-white">
+        <div className="max-w-7xl mx-auto px-6 text-center">
 
-<div className="max-w-7xl mx-auto px-6">
+          <h2 className="text-3xl font-bold text-gray-900 mb-4">
+            Top Rated Professionals
+          </h2>
 
-<div className="text-center mb-12">
+          <p className="text-gray-600 mb-12">
+            Verified providers with excellent ratings
+          </p>
 
-<h2 className="text-3xl font-bold text-gray-900 mb-4">
-Top Rated Professionals
-</h2>
+          <FeaturedProviders />
 
-<p className="text-gray-600">
-Verified providers with excellent ratings
-</p>
+        </div>
 
-</div>
+      </section>
 
-<FeaturedProviders/>
+      {/* MAP SECTION */}
 
-</div>
+      <section className="py-16 bg-[#0A0E1A] text-white text-center">
 
-</section>
+        <h2 className="text-3xl font-bold mb-4">
+          Find Professionals Near You
+        </h2>
 
-{/* CATEGORIES */}
+        <p className="text-gray-300 mb-6">
+          Discover trusted providers on the map
+        </p>
 
-<section className="py-16 bg-gray-100">
+        <Link to={createPageUrl("MapSearch")}>
+          <Button className="bg-[#FF6633]">
+            <MapPin className="mr-2 w-4 h-4" />
+            Open Map
+          </Button>
+        </Link>
 
-<div className="max-w-7xl mx-auto px-6">
+      </section>
 
-<div className="flex justify-between mb-10">
+      {/* CATEGORIES */}
 
-<div>
+      <section className="py-16 bg-gray-100">
 
-<h2 className="text-3xl font-bold text-gray-900 mb-2">
-Browse Categories
-</h2>
+        <div className="max-w-7xl mx-auto px-6">
 
-<p className="text-gray-600">
-Explore services from professionals
-</p>
+          <div className="flex justify-between mb-10">
 
-</div>
+            <div>
 
-<Link
-to={createPageUrl('Categories')}
-className="flex items-center gap-2 text-[#FF6633]"
->
+              <h2 className="text-3xl font-bold text-gray-900 mb-2">
+                Browse Categories
+              </h2>
 
-View All
-<ChevronRight size={16}/>
+              <p className="text-gray-600">
+                Explore services from professionals
+              </p>
 
-</Link>
+            </div>
 
-</div>
+            <Link
+              to={createPageUrl("Categories")}
+              className="flex items-center gap-2 text-[#FF6633]"
+            >
+              View All
+              <ChevronRight size={16} />
+            </Link>
 
-{loading? (
+          </div>
 
-<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          {loading ? (
 
-{[...Array(8)].map((_,i)=>(
-<div key={i} className="bg-white h-40 rounded-xl shadow animate-pulse"/>
-))}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
 
-</div>
+              {[...Array(8)].map((_, i) => (
+                <div key={i} className="bg-white h-40 rounded-xl shadow animate-pulse" />
+              ))}
 
-):(
+            </div>
 
-<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          ) : (
 
-{categories.map(category=>(
-<CategoryCard key={category.id} category={category}/>
-))}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
 
-</div>
+              {categories.map((category) => (
+                <CategoryCard key={category.id} category={category} />
+              ))}
 
-)}
+            </div>
 
-</div>
+          )}
 
-</section>
+        </div>
 
-</div>
+      </section>
 
-)
-
+    </div>
+  );
 }
