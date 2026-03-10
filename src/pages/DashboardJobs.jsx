@@ -29,13 +29,16 @@ export default function DashboardJobs() {
   }, []);
 
   const loadData = async () => {
+    setLoading(true);
+
     // Get authenticated user
     const {
       data: { user: currentUser },
       error: userError,
     } = await supabase.auth.getUser();
+
     if (userError || !currentUser) {
-      window.location.href = createPageUrl("CompleteProfile"); // redirect if not logged in
+      window.location.href = createPageUrl("CompleteProfile");
       return;
     }
     setUser(currentUser);
@@ -45,6 +48,7 @@ export default function DashboardJobs() {
       .from("profiles")
       .select("*")
       .eq("user_email", currentUser.email);
+
     if (profiles?.length > 0) setProfile(profiles[0]);
 
     // Load jobs
@@ -53,31 +57,33 @@ export default function DashboardJobs() {
       .select("*")
       .order("created_date", { ascending: false });
 
+    // Filter jobs for this user (case-insensitive)
+    const userEmail = currentUser.email?.trim().toLowerCase();
     const userJobs = (allJobs || []).filter(
       (j) =>
-        j.client_email === currentUser.email ||
-        j.provider_email === currentUser.email
+        j.client_email?.trim().toLowerCase() === userEmail ||
+        j.provider_email?.trim().toLowerCase() === userEmail
     );
-    setJobs(userJobs);
 
+    setJobs(userJobs);
     setLoading(false);
   };
 
   const filteredJobs = jobs.filter((job) => {
-    // Search filter
-    const matchesSearch =
-      job.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      job.description?.toLowerCase().includes(searchQuery.toLowerCase());
+    const query = searchQuery.toLowerCase();
 
-    // Status filter
+    const matchesSearch =
+      job.title?.toLowerCase().includes(query) ||
+      job.description?.toLowerCase().includes(query);
+
     const matchesStatus = statusFilter === "all" || job.status === statusFilter;
 
-    // Role filter
     let matchesRole = true;
+    const userEmail = user?.email?.trim().toLowerCase();
     if (roleFilter === "client") {
-      matchesRole = job.client_email === user?.email;
+      matchesRole = job.client_email?.trim().toLowerCase() === userEmail;
     } else if (roleFilter === "provider") {
-      matchesRole = job.provider_email === user?.email;
+      matchesRole = job.provider_email?.trim().toLowerCase() === userEmail;
     }
 
     return matchesSearch && matchesStatus && matchesRole;
@@ -156,36 +162,15 @@ export default function DashboardJobs() {
       {/* Status Tabs */}
       <Tabs value={statusFilter} onValueChange={setStatusFilter} className="mb-6">
         <TabsList className="bg-[#0F1117] border border-[#2A2D3E]">
-          <TabsTrigger
-            value="all"
-            className="data-[state=active]:bg-[#FF6633] data-[state=active]:text-white"
-          >
-            All
-          </TabsTrigger>
-          <TabsTrigger
-            value="pending"
-            className="data-[state=active]:bg-[#FF6633] data-[state=active]:text-white"
-          >
-            Pending
-          </TabsTrigger>
-          <TabsTrigger
-            value="funded"
-            className="data-[state=active]:bg-[#FF6633] data-[state=active]:text-white"
-          >
-            Funded
-          </TabsTrigger>
-          <TabsTrigger
-            value="in_progress"
-            className="data-[state=active]:bg-[#FF6633] data-[state=active]:text-white"
-          >
-            In Progress
-          </TabsTrigger>
-          <TabsTrigger
-            value="completed"
-            className="data-[state=active]:bg-[#FF6633] data-[state=active]:text-white"
-          >
-            Completed
-          </TabsTrigger>
+          {["all", "pending", "funded", "in_progress", "completed"].map((status) => (
+            <TabsTrigger
+              key={status}
+              value={status}
+              className="data-[state=active]:bg-[#FF6633] data-[state=active]:text-white"
+            >
+              {status.replace("_", " ").replace(/\b\w/g, (l) => l.toUpperCase())}
+            </TabsTrigger>
+          ))}
         </TabsList>
       </Tabs>
 

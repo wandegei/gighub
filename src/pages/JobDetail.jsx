@@ -62,6 +62,13 @@ const statusIcons = {
   cancelled: XCircle,
 };
 
+const safeFormat = (date, pattern = 'MMM d, yyyy') => {
+  if (!date) return '—';
+  const d = new Date(date);
+  if (isNaN(d.getTime())) return '—';
+  return format(d, pattern);
+};
+
 export default function JobDetail() {
   const [job, setJob] = useState(null);
   const [user, setUser] = useState(null);
@@ -101,11 +108,11 @@ export default function JobDetail() {
       return;
     }
 
-    // Load wallet
+    // Load wallet  providerWallet
     const { data: wallets } = await supabase
       .from('wallets')
       .select('*')
-      .eq('user_email', session.session.user.email);
+      .eq('user_id', session.session.user.id)
     if (wallets?.length) setWallet(wallets[0]);
 
     // Load job
@@ -286,9 +293,12 @@ export default function JobDetail() {
     await supabase.from('jobs').update({ status: 'completed', completed_at: new Date().toISOString() }).eq('id', job.id);
 
     // Update provider wallet
-    const { data: providerWallets } = await supabase.from('wallets').select('*').eq('user_email', job.provider_email);
-    if (providerWallets?.length) {
-      const providerWallet = providerWallets[0];
+    const { data: providerWallet } = await supabase
+      .from('wallets')
+      .select('*')
+      .eq('user_id', job.provider_id)
+      .single();
+    if (providerWallet) {
 
       await supabase.from('wallets').update({
         balance: (providerWallet.balance || 0) + job.agreed_amount,
@@ -297,11 +307,10 @@ export default function JobDetail() {
 
       // Update client wallet (reduce locked balance)
       await supabase.from('wallets').update({
-        balance: (wallet.balance || 0) - job.agreed_amount,
-        locked_balance: (wallet.locked_balance || 0) - job.agreed_amount
-      }).eq('id', wallet.id);
+      locked_balance: (wallet.locked_balance || 0) - job.agreed_amount
+    }).eq('id', wallet.id);
 
-      // Create release transaction
+      // Create release transaction  transactions
       await supabase.from('transactions').insert({
         job_id: job.id,
         from_wallet_id: wallet.id,
@@ -456,14 +465,18 @@ export default function JobDetail() {
                   <Calendar className="w-5 h-5" />
                   <div>
                     <p className="text-xs text-gray-500">Created</p>
-                    <p className="text-white">{format(new Date(job.created_date), 'MMM d, yyyy')}</p>
+                    <p className="text-white">
+                    {job.created_at
+                      ? format(new Date(job.created_at), 'MMM d, yyyy')
+                      : '—'}
+                  </p>
                   </div>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Action Buttons */}
+          {/* Action Buttons  tx.created_date */}
           <div className="pt-6 border-t border-[#2A2D3E] flex flex-wrap gap-3">
             {isClient && job.status === 'pending' && (
               <Button 
@@ -522,7 +535,9 @@ export default function JobDetail() {
               <>
                 <div className="flex items-center gap-2 text-green-400">
                   <CheckCircle className="w-5 h-5" />
-                  <span>Completed on {format(new Date(job.completed_at || job.updated_date), 'MMM d, yyyy')}</span>
+                  <span>Completed on {job.completed_at
+              ? format(new Date(job.completed_at), 'MMM d, yyyy')
+              : '—'}</span>
                 </div>
                 {isClient && (
                   <Button 
@@ -561,7 +576,9 @@ export default function JobDetail() {
                           <p className="text-white font-medium capitalize">{tx.type?.replace('_', ' ')}</p>
                           <p className="text-gray-500 text-sm">{tx.description}</p>
                           <p className="text-gray-600 text-xs">
-                            {format(new Date(tx.created_date), 'MMM d, yyyy · h:mm a')}
+                            {tx.created_at
+                              ? format(new Date(tx.created_at), 'MMM d, yyyy · h:mm a')
+                              : ''}
                           </p>
                         </div>
                         <p className="text-lg font-semibold text-white">{formatAmount(tx.amount)}</p>
@@ -612,7 +629,7 @@ export default function JobDetail() {
         </div>
       </div>
 
-      {/* Review Dialog */}
+      {/* Review Dialog   job.completed_at*/}
       <Dialog open={reviewDialogOpen} onOpenChange={setReviewDialogOpen}>
         <DialogContent className="bg-[#1A1D2E] border-[#2A2D3E]">
           <DialogHeader>
@@ -669,7 +686,7 @@ export default function JobDetail() {
         </DialogContent>
       </Dialog>
 
-      {/* Confirmation Dialog */}
+      {/* Confirmation Dialog  created_date */}
       <AlertDialog open={confirmDialog.open} onOpenChange={(open) => setConfirmDialog({ ...confirmDialog, open })}>
         <AlertDialogContent className="bg-[#1A1D2E] border-[#2A2D3E]">
           <AlertDialogHeader>
@@ -710,7 +727,7 @@ export default function JobDetail() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Work Submit Dialog */}
+      {/* Work Submit Dialog  created_date */}
       <Dialog open={workSubmitDialogOpen} onOpenChange={setWorkSubmitDialogOpen}>
         <DialogContent className="bg-[#1A1D2E] border-[#2A2D3E]">
           <DialogHeader>

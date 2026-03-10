@@ -105,16 +105,18 @@ export default function ServiceDetail() {
       .eq('provider_id', serviceData.provider_id);
     setReviews(reviewsData || []);
 
-    // Auth user
+    // Auth user  job
     const { data: { user: authUser } } = await supabase.auth.getUser();
     if (authUser) {
       setUser(authUser);
-      const { data: profiles } = await supabase
+            const { data: profile } = await supabase
         .from('profiles')
         .select('*')
-        .eq('user_email', authUser.email);
-      if (profiles?.length > 0) setUserProfile(profiles[0]);
-    }
+        .eq('user_id', authUser.id)
+        .single();
+
+      setUserProfile(profile);
+          }
 
     setLoading(false);
   };
@@ -138,19 +140,17 @@ export default function ServiceDetail() {
     setSubmitting(true);
 
     const { data: job, error } = await supabase
-      .from('jobs')
-      .insert({
-        client_id: userProfile.id,
-        client_email: user.email,
-        provider_id: provider.id,
-        provider_email: provider.user_email,
-        title: service.title,
-        description: service.description || `Package includes: ${service.deliverables?.join(', ')}`,
-        agreed_amount: parseFloat(service.price),
-        status: 'pending'
-      })
-      .select()
-      .single();
+  .from('jobs')
+  .insert({
+    client_id: userProfile.id,
+    provider_id: provider.id,
+    title: service.title,
+    description: service.description,
+    agreed_amount: parseFloat(service.price),
+    status: 'pending'
+  })
+  .select()
+  .single();
 
     if (error) {
       console.error("JOB ERROR:", error);
@@ -170,21 +170,20 @@ export default function ServiceDetail() {
     setSubmitting(true);
 
     let { data: wallets } = await supabase
-      .from('wallets')
-      .select('*')
-      .eq('user_email', user.email);
-    let wallet = wallets?.[0];
+  .from('wallets')
+  .select('*')
+  .eq('user_id', user.id);
+let wallet = wallets?.[0] || null;
 
     if (!wallet) {
       const { data: newWallet } = await supabase
         .from('wallets')
         .insert({
-          user_id: userProfile.id,
-          user_email: user.email,
-          balance: 0,
-          available_balance: 0,
-          locked_balance: 0
-        })
+  user_id: user.id,
+  balance: 0,
+  available_balance: 0,
+  locked_balance: 0
+})
         .select()
         .single();
       wallet = newWallet;
@@ -254,7 +253,7 @@ export default function ServiceDetail() {
         </Link>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Main Content */}
+          {/* Main Content  wallets */}
           <div className="lg:col-span-2 space-y-6">
             {/* Service Image */}
             <div className="aspect-video rounded-2xl overflow-hidden bg-[#1A1D2E]">
@@ -336,7 +335,7 @@ export default function ServiceDetail() {
             </div>
           </div>
 
-          {/* Sidebar */}
+          {/* Sidebar  profiles */}
           <div className="space-y-6">
             <div className="card-dark p-6 sticky top-24">
               <div className="mb-6">

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '../../utils';
-import { Calendar, DollarSign, User, ChevronRight } from 'lucide-react';
+import { Calendar, DollarSign, User, ChevronRight, Briefcase } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 
@@ -14,8 +14,13 @@ const statusColors = {
 };
 
 export default function JobCard({ job, userEmail }) {
-  const isClient = job.client_email === userEmail;
-  
+  if (!job || !userEmail) return null;
+
+  const email = userEmail.trim().toLowerCase();
+  const isClient = job.client_email?.trim().toLowerCase() === email;
+  const isProvider = job.provider_email?.trim().toLowerCase() === email;
+  const userRole = isClient ? 'client' : isProvider ? 'provider' : 'viewer';
+
   const formatAmount = (amount) => {
     return new Intl.NumberFormat('en-UG', {
       style: 'currency',
@@ -26,12 +31,13 @@ export default function JobCard({ job, userEmail }) {
   };
 
   return (
-    <Link 
+    <Link
       to={createPageUrl(`JobDetail?id=${job.id}`)}
       className="card-dark p-5 hover:border-[#FF6633]/30 transition-all duration-300 block group"
     >
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1 min-w-0">
+          {/* Title and Status */}
           <div className="flex items-center gap-3 mb-2">
             <h3 className="text-lg font-semibold text-white truncate group-hover:text-[#FF6633] transition-colors">
               {job.title}
@@ -40,29 +46,44 @@ export default function JobCard({ job, userEmail }) {
               {job.status?.replace('_', ' ')}
             </Badge>
           </div>
-          
+
+          {/* Role Label */}
+          {userRole !== 'viewer' && (
+            <p className="text-gray-400 text-sm mb-2 italic">
+              You are the {userRole.charAt(0).toUpperCase() + userRole.slice(1)}
+            </p>
+          )}
+
+          {/* Description */}
           <p className="text-gray-500 text-sm line-clamp-2 mb-4">
             {job.description || 'No description provided'}
           </p>
-          
+
+          {/* Job Info */}
           <div className="flex flex-wrap items-center gap-4 text-sm">
             <div className="flex items-center gap-1.5 text-gray-400">
               <DollarSign className="w-4 h-4" />
               <span className="font-medium text-white">{formatAmount(job.agreed_amount)}</span>
             </div>
-            
+
             <div className="flex items-center gap-1.5 text-gray-400">
               <User className="w-4 h-4" />
-              <span>{isClient ? 'Provider' : 'Client'}: {isClient ? job.provider_email : job.client_email}</span>
+              <span>
+                {userRole === 'client'
+                  ? `Provider: ${job.provider_email}`
+                  : userRole === 'provider'
+                  ? `Client: ${job.client_email}`
+                  : `Client: ${job.client_email}`}
+              </span>
             </div>
-            
+
             <div className="flex items-center gap-1.5 text-gray-400">
               <Calendar className="w-4 h-4" />
               <span>{format(new Date(job.created_date), 'MMM d, yyyy')}</span>
             </div>
           </div>
         </div>
-        
+
         <ChevronRight className="w-5 h-5 text-gray-500 group-hover:text-[#FF6633] group-hover:translate-x-1 transition-all flex-shrink-0 mt-2" />
       </div>
     </Link>
