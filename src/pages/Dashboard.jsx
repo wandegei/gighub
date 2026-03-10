@@ -29,7 +29,7 @@ export default function Dashboard() {
     try {
       setLoading(true);
 
-      /* ---------- GET AUTH USER ---------- */
+      /* ---------- GET AUTH USER   created_date---------- */
       const {
         data: { user: currentUser },
         error: userError,
@@ -72,7 +72,7 @@ export default function Dashboard() {
       const { data: jobsData, error: jobsError } = await supabase
         .from("jobs")
         .select("*")
-        .order("created_date", { ascending: false })
+        .order('created_at', { ascending: false })
         .limit(5);
 
       if (jobsError) {

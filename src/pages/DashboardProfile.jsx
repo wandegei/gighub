@@ -49,7 +49,7 @@ export default function DashboardProfile() {
 
     setUser(user);
 
-    /* -------------------- PROFILE -------------------- */
+    /* -------------------- PROFILE  authUser.email  const { data: { user } } = await authUser.email();-------------------- */
 
     const { data: profileData, error } = await supabase
       .from("profiles")
