@@ -58,12 +58,7 @@ export default function Home() {
       video: "https://cwvfozdugyzkzalbrhpo.supabase.co/storage/v1/object/public/main%20vedios/WhatsApp%20Video%202026-03-10%20at%207.04.41%20PM.mp4",
       title: "Barbers & Personal Services",
       subtitle: "Book experienced professionals near you",
-    },
-    {
-      video: "https://cwvfozdugyzkzalbrhpo.supabase.co/storage/v1/object/public/main%20vedios/barbers.mp4",
-      title: "Barbers & Personal Services",
-      subtitle: "Book experienced professionals near you",
-    },
+    }
   ];
 
   const videoRefs = useRef([]);
