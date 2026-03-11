@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect, useRef } from "react"
 import { supabase } from "@/lib/supabaseClient"
 import { Send, Search, MessageSquare, ArrowLeft } from "lucide-react"
 import { Input } from "@/components/ui/input"
@@ -20,6 +20,10 @@ const [messages,setMessages] = useState([])
 const [newMessage,setNewMessage] = useState("")
 const [loading,setLoading] = useState(true)
 const [sending,setSending] = useState(false)
+
+const [otherTyping,setOtherTyping] = useState(false)
+
+const chatRef = useRef(null)
 
 /* ------------------------------- */
 /* LOAD USER */
@@ -62,8 +66,6 @@ setLoading(false)
 
 const loadConversations = async(profileId)=>{
 
-if(!profileId) return
-
 const { data, error } = await supabase
 .from("conversations")
 .select(`
@@ -73,7 +75,8 @@ user_two,
 last_message,
 last_message_time,
 userOne:user_one(id,full_name),
-userTwo:user_two(id,full_name)
+userTwo:user_two(id,full_name),
+messages(id,is_read,receiver_id)
 `)
 .or(`user_one.eq.${profileId},user_two.eq.${profileId}`)
 .order("last_message_time",{ascending:false})
@@ -90,12 +93,17 @@ convo.user_one === profileId
 ? convo.userTwo
 : convo.userOne
 
+const unread = convo.messages?.filter(
+m => !m.is_read && m.receiver_id === profileId
+).length
+
 return{
 id: convo.id,
 otherId: otherUser?.id,
 otherName: otherUser?.full_name || "User",
 lastMessage: convo.last_message || "",
-lastMessageTime: convo.last_message_time
+lastMessageTime: convo.last_message_time,
+unread
 }
 
 })
@@ -109,27 +117,41 @@ setConversations(convos)
 /* ------------------------------- */
 
 useEffect(()=>{
-if(selectedConvo) loadMessages()
+if(selectedConvo){
+loadMessages()
+}
 },[selectedConvo])
 
 const loadMessages = async()=>{
 
-if(!selectedConvo) return
-
-const { data, error } = await supabase
+const { data } = await supabase
 .from("messages")
 .select("*")
 .eq("conversation_id",selectedConvo.id)
-.order("created_date",{ascending:true})
-
-if(error){
-console.error(error)
-return
-}
+.order("created_at",{ascending:true})
 
 setMessages(data || [])
 
+await supabase
+.from("messages")
+.update({is_read:true})
+.eq("conversation_id",selectedConvo.id)
+.eq("receiver_id",profile.id)
+.eq("is_read",false)
+
 }
+
+/* ------------------------------- */
+/* AUTO SCROLL */
+/* ------------------------------- */
+
+useEffect(()=>{
+
+if(chatRef.current){
+chatRef.current.scrollTop = chatRef.current.scrollHeight
+}
+
+},[messages])
 
 /* ------------------------------- */
 /* SEND MESSAGE */
@@ -138,39 +160,72 @@ setMessages(data || [])
 const handleSend = async()=>{
 
 if(!newMessage.trim()) return
-if(!profile || !selectedConvo) return
+
+const messageText = newMessage.trim()
 
 setSending(true)
 
 const { error } = await supabase
 .from("messages")
 .insert({
-conversation_id: selectedConvo.id,
-sender_id: profile.id,
-receiver_id: selectedConvo.otherId,
-message: newMessage,
-is_read: false
+conversation_id:selectedConvo.id,
+sender_id:profile.id,
+receiver_id:selectedConvo.otherId,
+message:messageText,
+is_read:false
 })
 
 if(error){
 toast.error("Message failed")
 console.error(error)
+setSending(false)
+return
 }
 
 await supabase
 .from("conversations")
 .update({
-last_message:newMessage,
+last_message:messageText,
 last_message_time:new Date().toISOString()
 })
 .eq("id",selectedConvo.id)
 
+setMessages(prev=>[
+...prev,
+{
+id:Date.now(),
+sender_id:profile.id,
+message:messageText,
+created_at:new Date().toISOString()
+}
+])
+
 setNewMessage("")
 
-await loadMessages()
 await loadConversations(profile.id)
 
 setSending(false)
+
+}
+
+/* ------------------------------- */
+/* TYPING */
+/* ------------------------------- */
+
+const handleTyping = async(e)=>{
+
+setNewMessage(e.target.value)
+
+if(!selectedConvo) return
+
+await supabase.channel("typing").send({
+type:"broadcast",
+event:"typing",
+payload:{
+conversation_id:selectedConvo.id,
+user_id:profile.id
+}
+})
 
 }
 
@@ -183,7 +238,8 @@ useEffect(()=>{
 if(!profile) return
 
 const channel = supabase
-.channel("messages")
+.channel("messages-system")
+
 .on(
 "postgres_changes",
 {
@@ -193,24 +249,54 @@ table:"messages"
 },
 (payload)=>{
 
+const msg = payload.new
+
 if(
-payload.new.sender_id === profile.id ||
-payload.new.receiver_id === profile.id
+msg.sender_id === profile.id ||
+msg.receiver_id === profile.id
 ){
 
-loadConversations(profile.id)
+if(selectedConvo?.id === msg.conversation_id){
 
-if(selectedConvo?.id === payload.new.conversation_id){
-loadMessages()
+setMessages(prev=>[...prev,msg])
+
 }
+
+loadConversations(profile.id)
 
 }
 
 }
 )
+
+.on(
+"broadcast",
+{event:"typing"},
+(payload)=>{
+
+if(
+payload.payload.user_id !== profile.id &&
+payload.payload.conversation_id === selectedConvo?.id
+){
+
+setOtherTyping(true)
+
+setTimeout(()=>{
+setOtherTyping(false)
+},2000)
+
+}
+
+}
+)
+
 .subscribe()
 
-return ()=> supabase.removeChannel(channel)
+return()=>{
+
+supabase.removeChannel(channel)
+
+}
 
 },[profile,selectedConvo])
 
@@ -245,7 +331,7 @@ Messages
 
 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 h-[calc(100vh-200px)]">
 
-{/* conversations */}
+{/* CONVERSATIONS */}
 
 <div className={`card-dark p-4 overflow-y-auto ${selectedConvo ? "hidden lg:block":""}`}>
 
@@ -270,11 +356,17 @@ selectedConvo?.id === convo.id
 }`}
 >
 
-<div className="flex items-center justify-between mb-1">
+<div className="flex items-center justify-between">
 
 <span className="font-medium text-white">
 {convo.otherName}
 </span>
+
+{convo.unread > 0 && (
+<span className="bg-[#FF6B3D] text-black text-xs px-2 py-0.5 rounded-full">
+{convo.unread}
+</span>
+)}
 
 </div>
 
@@ -294,7 +386,7 @@ selectedConvo?.id === convo.id
 
 </div>
 
-):(
+):( 
 
 <div className="text-center py-12">
 <MessageSquare className="w-12 h-12 text-gray-600 mx-auto mb-4"/>
@@ -305,7 +397,7 @@ selectedConvo?.id === convo.id
 
 </div>
 
-{/* chat */}
+{/* CHAT */}
 
 <div className={`lg:col-span-2 card-dark flex flex-col ${!selectedConvo ? "hidden lg:flex":""}`}>
 
@@ -334,7 +426,10 @@ className="lg:hidden text-[#FF6B3D]"
 
 </div>
 
-<div className="flex-1 overflow-y-auto p-4 space-y-4">
+<div
+ref={chatRef}
+className="flex-1 overflow-y-auto p-4 space-y-4"
+>
 
 {messages.map(msg=>{
 
@@ -357,7 +452,7 @@ isSent
 </p>
 
 <p className={`text-xs mt-1 ${isSent ? "text-black/70":"text-gray-500"}`}>
-{format(new Date(msg.created_date),"h:mm a")}
+{format(new Date(msg.created_at),"h:mm a")}
 </p>
 
 </div>
@@ -368,6 +463,12 @@ isSent
 
 })}
 
+{otherTyping && (
+<p className="text-xs text-gray-500 px-2">
+typing...
+</p>
+)}
+
 </div>
 
 <div className="p-4 border-t border-[#1E2430]">
@@ -376,7 +477,7 @@ isSent
 
 <Textarea
 value={newMessage}
-onChange={e=>setNewMessage(e.target.value)}
+onChange={handleTyping}
 placeholder="Type a message..."
 className="input-dark resize-none"
 rows={2}
@@ -396,7 +497,7 @@ className="btn-primary"
 
 </>
 
-):(
+):( 
 
 <div className="flex-1 flex items-center justify-center">
 
