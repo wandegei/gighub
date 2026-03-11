@@ -21,7 +21,7 @@ export default function Providers() {
       .from('profiles')
       .select('*')
       .eq('user_type', 'provider')
-      .order('created_at', { ascending: false }); // replace created_date with your Supabase column
+      .order('created_at', { ascending: false }); 
 
     if (error) {
       console.error('Error fetching providers:', error.message);

@@ -4,7 +4,7 @@ import { createPageUrl } from '../utils';
 import { supabase } from '@/lib/supabaseClient';
 import { 
   ChevronLeft, MapPin, Star, Phone, Briefcase, 
-  MessageSquare, Loader2, Check, CreditCard
+  MessageSquare, Loader2, Check, CreditCard, Eye, EyeOff
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -42,10 +42,15 @@ export default function ServiceDetail() {
   const [submitting, setSubmitting] = useState(false);
   const [createdJobId, setCreatedJobId] = useState(null);
 
-  const [paymentForm, setPaymentForm] = useState({
-    phone: '',
-    method: 'mtn'
-  });
+  const [paymentForm, setPaymentForm] = useState({ phone: '', method: 'mtn' });
+
+  // Login dialog state
+  const [loginDialogOpen, setLoginDialogOpen] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [loginLoading, setLoginLoading] = useState(false);
+  const [loginError, setLoginError] = useState('');
 
   useEffect(() => {
     loadData();
@@ -56,7 +61,7 @@ export default function ServiceDetail() {
     const id = new URLSearchParams(window.location.search).get('id');
     if (!id) return setLoading(false);
 
-    // Load Service  created_date
+    // Load Service
     const { data: serviceData } = await supabase
       .from('services')
       .select('*')
@@ -105,18 +110,17 @@ export default function ServiceDetail() {
       .eq('provider_id', serviceData.provider_id);
     setReviews(reviewsData || []);
 
-    // Auth user  job
+    // Auth user
     const { data: { user: authUser } } = await supabase.auth.getUser();
     if (authUser) {
       setUser(authUser);
-            const { data: profile } = await supabase
+      const { data: profile } = await supabase
         .from('profiles')
         .select('*')
         .eq('user_id', authUser.id)
         .single();
-
       setUserProfile(profile);
-          }
+    }
 
     setLoading(false);
   };
@@ -136,24 +140,27 @@ export default function ServiceDetail() {
     : null;
 
   const handleBookPackage = async () => {
-    if (!userProfile) return toast.error('User profile not found');
+    if (!userProfile) {
+      // Open login dialog if not logged in
+      setLoginDialogOpen(true);
+      return;
+    }
     setSubmitting(true);
 
     const { data: job, error } = await supabase
-  .from('jobs')
-  .insert({
-    client_id: userProfile.id,
-    provider_id: provider.id,
-    title: service.title,
-    description: service.description,
-    agreed_amount: parseFloat(service.price),
-    status: 'pending'
-  })
-  .select()
-  .single();
+      .from('jobs')
+      .insert({
+        client_id: userProfile.id,
+        provider_id: provider.id,
+        title: service.title,
+        description: service.description,
+        agreed_amount: parseFloat(service.price),
+        status: 'pending'
+      })
+      .select()
+      .single();
 
     if (error) {
-      console.error("JOB ERROR:", error);
       toast.error(error.message);
       setSubmitting(false);
       return;
@@ -170,20 +177,20 @@ export default function ServiceDetail() {
     setSubmitting(true);
 
     let { data: wallets } = await supabase
-  .from('wallets')
-  .select('*')
-  .eq('user_id', user.id);
-let wallet = wallets?.[0] || null;
+      .from('wallets')
+      .select('*')
+      .eq('user_id', user.id);
+    let wallet = wallets?.[0] || null;
 
     if (!wallet) {
       const { data: newWallet } = await supabase
         .from('wallets')
         .insert({
-  user_id: user.id,
-  balance: 0,
-  available_balance: 0,
-  locked_balance: 0
-})
+          user_id: user.id,
+          balance: 0,
+          available_balance: 0,
+          locked_balance: 0
+        })
         .select()
         .single();
       wallet = newWallet;
@@ -233,6 +240,31 @@ let wallet = wallets?.[0] || null;
     window.location.href = createPageUrl(`JobDetail?id=${createdJobId}`);
   };
 
+  // New login handler
+  const handleLogin = async () => {
+    setLoginError('');
+    if (!email || !password) return setLoginError("Enter email and password");
+    setLoginLoading(true);
+
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    setLoginLoading(false);
+
+    if (error) {
+      setLoginError(error.message);
+    } else {
+      setUser(data.user);
+      // Load profile
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('user_id', data.user.id)
+        .single();
+      setUserProfile(profile);
+      setLoginDialogOpen(false);
+      toast.success("Logged in successfully");
+    }
+  };
+
   if (loading) return <div className="min-h-screen py-8 lg:py-12">Loading...</div>;
   if (!service) return (
     <div className="min-h-screen py-8 lg:py-12 flex items-center justify-center">
@@ -251,7 +283,6 @@ let wallet = wallets?.[0] || null;
         <Link to={createPageUrl('Discover')} className="inline-flex items-center gap-2 text-gray-400 hover:text-white mb-6">
           <ChevronLeft className="w-4 h-4" /> Back to Services
         </Link>
-
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Main Content  wallets */}
           <div className="lg:col-span-2 space-y-6">
@@ -349,12 +380,10 @@ let wallet = wallets?.[0] || null;
                   <Briefcase className="w-4 h-4 mr-2" /> Book Package
                 </Button>
               ) : (
-                <Button onClick={() => supabase.auth.signInWithOAuth({ provider: 'google' })} className="btn-primary w-full mb-4">
+                <Button onClick={() => setLoginDialogOpen(true)} className="btn-primary w-full mb-4">
                   Sign in to Book
                 </Button>
               )}
-
-              
 
               {provider?.phone_number && (
                 <a href={`tel:${provider.phone_number}`}>
@@ -541,6 +570,47 @@ let wallet = wallets?.[0] || null;
             </div>
             <Button onClick={handlePayment} disabled={submitting} className="btn-primary w-full">
               {submitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <><CreditCard className="w-4 h-4 mr-2" /> Pay {formatAmount(service?.price)}</>}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+       {/* New Login Dialog */}
+      <Dialog open={loginDialogOpen} onOpenChange={setLoginDialogOpen}>
+        <DialogContent className="bg-[#1A1D2E] border-[#2A2D3E] max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-white">Login</DialogTitle>
+            <DialogDescription className="text-gray-500">Enter your email and password to continue</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 mt-4">
+            {loginError && <div className="text-red-400 text-sm">{loginError}</div>}
+
+            <Input
+              type="email"
+              placeholder="Email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="input-dark"
+            />
+
+            <div className="relative">
+              <Input
+                type={showPassword ? "text" : "password"}
+                placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="input-dark"
+              />
+              <button
+                type="button"
+                className="absolute right-3 top-3 text-gray-400"
+                onClick={() => setShowPassword(!showPassword)}
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
+
+            <Button onClick={handleLogin} disabled={loginLoading} className="btn-primary w-full">
+              {loginLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : "Login"}
             </Button>
           </div>
         </DialogContent>

@@ -113,6 +113,27 @@ setConversations(convos)
 }
 
 /* ------------------------------- */
+/* AUTO OPEN CONVERSATION FROM URL */
+/* ------------------------------- */
+
+useEffect(()=>{
+
+const params = new URLSearchParams(window.location.search)
+const convoId = params.get("convoId")
+
+if(convoId && conversations.length > 0){
+
+const convo = conversations.find(c => c.id === convoId)
+
+if(convo){
+setSelectedConvo(convo)
+}
+
+}
+
+},[conversations])
+
+/* ------------------------------- */
 /* LOAD MESSAGES */
 /* ------------------------------- */
 
