@@ -1,154 +1,126 @@
-import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { createPageUrl } from '../utils';
-import { supabase } from '@/lib/supabaseClient';
-import { 
-  ChevronLeft, MapPin, Star, Phone, Briefcase, 
-  MessageSquare, Loader2, Check, CreditCard, Eye, EyeOff
-} from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import React, { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
+import { createPageUrl } from '../utils'
+import { supabase } from '@/lib/supabaseClient'
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { format } from 'date-fns';
-import { toast } from 'sonner';
+  ChevronLeft,
+  MapPin,
+  Star,
+  Phone,
+  Briefcase,
+  MessageSquare,
+  Loader2,
+  Check,
+  CreditCard,
+  Lock
+} from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { format } from 'date-fns'
+import { toast } from 'sonner'
 
 export default function ServiceDetail() {
-  const [service, setService] = useState(null);
-  const [provider, setProvider] = useState(null);
-  const [category, setCategory] = useState(null);
-  const [reviews, setReviews] = useState([]);
-  const [otherServices, setOtherServices] = useState([]);
-  const [portfolio, setPortfolio] = useState([]);
-  const [user, setUser] = useState(null);
-  const [userProfile, setUserProfile] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [hireDialogOpen, setHireDialogOpen] = useState(false);
-  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [createdJobId, setCreatedJobId] = useState(null);
+  const [service, setService] = useState(null)
+  const [provider, setProvider] = useState(null)
+  const [category, setCategory] = useState(null)
+  const [reviews, setReviews] = useState([])
+  const [otherServices, setOtherServices] = useState([])
+  const [portfolio, setPortfolio] = useState([])
 
-  const [paymentForm, setPaymentForm] = useState({ phone: '', method: 'mtn' });
+  const [user, setUser] = useState(null)
+  const [userProfile, setUserProfile] = useState(null)
 
-  // Login dialog state
-  const [loginDialogOpen, setLoginDialogOpen] = useState(false);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [loginLoading, setLoginLoading] = useState(false);
-  const [loginError, setLoginError] = useState('');
+  const [loading, setLoading] = useState(true)
+  const [submitting, setSubmitting] = useState(false)
+  const [createdJobId, setCreatedJobId] = useState(null)
+
+  const [loginDialogOpen, setLoginDialogOpen] = useState(false)
+  const [hireDialogOpen, setHireDialogOpen] = useState(false)
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false)
+
+  const [loginForm, setLoginForm] = useState({ email: '', password: '' })
+  const [paymentForm, setPaymentForm] = useState({ phone: '', method: 'mtn' })
 
   useEffect(() => {
-    loadData();
-  }, []);
+    loadData()
+  }, [])
 
   const loadData = async () => {
-    setLoading(true);
-    const id = new URLSearchParams(window.location.search).get('id');
-    if (!id) return setLoading(false);
+    setLoading(true)
+    const id = new URLSearchParams(window.location.search).get('id')
+    if (!id) return setLoading(false)
 
     // Load Service
-    const { data: serviceData } = await supabase
-      .from('services')
-      .select('*')
-      .eq('id', id)
-      .single();
-    if (!serviceData) return setLoading(false);
-    setService(serviceData);
+    const { data: serviceData } = await supabase.from('services').select('*').eq('id', id).single()
+    if (!serviceData) return setLoading(false)
+    setService(serviceData)
 
     // Load Provider
-    const { data: providerData } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', serviceData.provider_id)
-      .single();
+    const { data: providerData } = await supabase.from('profiles').select('*').eq('id', serviceData.provider_id).single()
     if (providerData) {
-      setProvider(providerData);
+      setProvider(providerData)
 
       // Other services
       const { data: providerServices } = await supabase
         .from('services')
         .select('*')
         .eq('provider_id', serviceData.provider_id)
-        .eq('is_active', true);
-      setOtherServices(providerServices?.filter(s => s.id !== serviceData.id).slice(0, 4) || []);
+        .eq('is_active', true)
+      setOtherServices(providerServices?.filter(s => s.id !== serviceData.id).slice(0, 4) || [])
 
-      // Portfolio items
-      const { data: portfolioItems } = await supabase
-        .from('portfolio_items')
-        .select('*')
-        .eq('provider_id', serviceData.provider_id);
-      setPortfolio(portfolioItems?.slice(0, 6) || []);
+      // Portfolio
+      const { data: portfolioItems } = await supabase.from('portfolio_items').select('*').eq('provider_id', serviceData.provider_id)
+      setPortfolio(portfolioItems?.slice(0, 6) || [])
     }
 
     // Category
-    const { data: categoryData } = await supabase
-      .from('categories')
-      .select('*')
-      .eq('id', serviceData.category_id)
-      .single();
-    if (categoryData) setCategory(categoryData);
+    const { data: categoryData } = await supabase.from('categories').select('*').eq('id', serviceData.category_id).single()
+    if (categoryData) setCategory(categoryData)
 
     // Reviews
-    const { data: reviewsData } = await supabase
-      .from('reviews')
-      .select('*')
-      .eq('provider_id', serviceData.provider_id);
-    setReviews(reviewsData || []);
+    const { data: reviewsData } = await supabase.from('reviews').select('*').eq('provider_id', serviceData.provider_id)
+    setReviews(reviewsData || [])
 
     // Auth user
-    const { data: { user: authUser } } = await supabase.auth.getUser();
+    const { data: { user: authUser } } = await supabase.auth.getUser()
     if (authUser) {
-      setUser(authUser);
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('user_id', authUser.id)
-        .single();
-      setUserProfile(profile);
+      setUser(authUser)
+      const { data: profile } = await supabase.from('profiles').select('*').eq('user_id', authUser.id).single()
+      setUserProfile(profile)
     }
 
-    setLoading(false);
-  };
+    setLoading(false)
+  }
 
-  const formatAmount = (amount) => {
-    if (!amount) return 'Negotiable';
-    return new Intl.NumberFormat('en-UG', {
-      style: 'currency',
-      currency: 'UGX',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(amount);
-  };
+  const formatAmount = (amount) => !amount ? 'Negotiable' : new Intl.NumberFormat('en-UG', { style: 'currency', currency: 'UGX', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(amount)
 
-  const avgRating = reviews.length > 0 
-    ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1)
-    : null;
+  const avgRating = reviews.length > 0 ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1) : null
 
+  /** Login handler (email/password) */
+  const handleLogin = async () => {
+    if (!loginForm.email || !loginForm.password) { toast.error("Enter email and password"); return }
+    setSubmitting(true)
+    const { data, error } = await supabase.auth.signInWithPassword({ email: loginForm.email, password: loginForm.password })
+    if (error) { toast.error(error.message); setSubmitting(false); return }
+    setUser(data.user)
+    const { data: profile } = await supabase.from('profiles').select('*').eq('user_id', data.user.id).single()
+    setUserProfile(profile)
+    toast.success("Logged in successfully")
+    setLoginDialogOpen(false)
+    setSubmitting(false)
+  }
+
+  /** Book package handler */
   const handleBookPackage = async () => {
-    if (!userProfile) {
-      // Open login dialog if not logged in
-      setLoginDialogOpen(true);
-      return;
-    }
-    setSubmitting(true);
+    if (!userProfile) { toast.error("You must be logged in"); return }
+    if (!provider || !provider.id) { toast.error("Provider data not loaded yet"); return }
+    if (!service || !service.id) { toast.error("Service data not loaded yet"); return }
 
-    const { data: job, error } = await supabase
-      .from('jobs')
+    setSubmitting(true)
+    const { data: job, error } = await supabase.from('jobs')
       .insert({
         client_id: userProfile.id,
         provider_id: provider.id,
@@ -158,182 +130,97 @@ export default function ServiceDetail() {
         status: 'pending'
       })
       .select()
-      .single();
+      .single()
 
-    if (error) {
-      toast.error(error.message);
-      setSubmitting(false);
-      return;
-    }
+    if (error) { toast.error(error.message); setSubmitting(false); return }
 
-    setCreatedJobId(job.id);
-    setHireDialogOpen(false);
-    setPaymentDialogOpen(true);
-    setSubmitting(false);
-  };
+    setCreatedJobId(job.id)
+    setHireDialogOpen(false)
+    setPaymentDialogOpen(true)
+    setSubmitting(false)
+  }
 
+  /** Payment handler */
   const handlePayment = async () => {
-    if (!paymentForm.phone) return toast.error('Please enter your phone number');
-    setSubmitting(true);
+    if (!paymentForm.phone) { toast.error("Enter phone number"); return }
+    if (!user || !user.id) { toast.error("User not found"); return }
+    setSubmitting(true)
 
-    let { data: wallets } = await supabase
-      .from('wallets')
-      .select('*')
-      .eq('user_id', user.id);
-    let wallet = wallets?.[0] || null;
-
+    let { data: wallets } = await supabase.from('wallets').select('*').eq('user_id', user.id)
+    let wallet = wallets?.[0] || null
     if (!wallet) {
-      const { data: newWallet } = await supabase
-        .from('wallets')
-        .insert({
-          user_id: user.id,
-          balance: 0,
-          available_balance: 0,
-          locked_balance: 0
-        })
-        .select()
-        .single();
-      wallet = newWallet;
+      const { data: newWallet } = await supabase.from('wallets').insert({ user_id: user.id, balance: 0, available_balance: 0, locked_balance: 0 }).select().single()
+      wallet = newWallet
     }
 
-    const amount = parseFloat(service.price);
+    const amount = parseFloat(service.price)
 
-    await supabase
-      .from('wallets')
-      .update({
-        balance: (wallet.balance || 0) + amount,
-        available_balance: wallet.available_balance || 0,
-        locked_balance: (wallet.locked_balance || 0) + amount
-      })
-      .eq('id', wallet.id);
+    await supabase.from('wallets').update({
+      balance: (wallet.balance || 0) + amount,
+      locked_balance: (wallet.locked_balance || 0) + amount
+    }).eq('id', wallet.id)
 
-    await supabase
-      .from('jobs')
-      .update({ status: 'funded' })
-      .eq('id', createdJobId);
+    await supabase.from('jobs').update({ status: 'funded' }).eq('id', createdJobId)
+    await supabase.from('transactions').insert({
+      job_id: createdJobId,
+      from_wallet_id: wallet.id,
+      from_email: user.email,
+      amount,
+      type: 'escrow_lock',
+      description: `${paymentForm.method} payment for ${service.title}`,
+      status: 'completed'
+    })
 
-    await supabase
-      .from('transactions')
-      .insert({
-        job_id: createdJobId,
-        from_wallet_id: wallet.id,
-        from_email: user.email,
-        amount,
-        type: 'escrow_lock',
-        description: `${paymentForm.method.toUpperCase()} payment for: ${service.title}`,
-        status: 'completed'
-      });
+    toast.success("Payment successful")
+    setPaymentDialogOpen(false)
+    setSubmitting(false)
+    window.location.href = createPageUrl(`JobDetail?id=${createdJobId}`)
+  }
 
-    await supabase
-      .from('notifications')
-      .insert({
-        user_email: provider.user_email,
-        title: 'New Booking!',
-        message: `${userProfile.full_name} booked your "${service.title}" package (${formatAmount(amount)})`,
-        type: 'job',
-        link: `JobDetail?id=${createdJobId}`
-      });
-
-    toast.success('Payment successful! Job funded in escrow.');
-    setPaymentDialogOpen(false);
-    setSubmitting(false);
-    window.location.href = createPageUrl(`JobDetail?id=${createdJobId}`);
-  };
-
-  // New login handler
-  const handleLogin = async () => {
-    setLoginError('');
-    if (!email || !password) return setLoginError("Enter email and password");
-    setLoginLoading(true);
-
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    setLoginLoading(false);
-
-    if (error) {
-      setLoginError(error.message);
-    } else {
-      setUser(data.user);
-      // Load profile
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('user_id', data.user.id)
-        .single();
-      setUserProfile(profile);
-      setLoginDialogOpen(false);
-      toast.success("Logged in successfully");
-    }
-  };
-
-  if (loading) return <div className="min-h-screen py-8 lg:py-12">Loading...</div>;
-  if (!service) return (
-    <div className="min-h-screen py-8 lg:py-12 flex items-center justify-center">
-      <div className="card-dark p-12 text-center max-w-md">
-        <h3 className="text-lg font-medium text-white mb-2">Service not found</h3>
-        <Link to={createPageUrl('Discover')}>
-          <Button className="btn-primary mt-4">Browse Services</Button>
-        </Link>
-      </div>
-    </div>
-  );
+  if (loading) return <div className="p-10">Loading...</div>
+  if (!service) return <div className="p-10 text-center">Service not found</div>
 
   return (
-    <div className="min-h-screen py-8 lg:py-12">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-        <Link to={createPageUrl('Discover')} className="inline-flex items-center gap-2 text-gray-400 hover:text-white mb-6">
+    <div className="min-h-screen py-8">
+      <div className="max-w-6xl mx-auto px-4">
+        <Link to={createPageUrl('Discover')} className="inline-flex items-center gap-2 text-gray-400 mb-6">
           <ChevronLeft className="w-4 h-4" /> Back to Services
         </Link>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Main Content  wallets */}
+
+        <div className="grid lg:grid-cols-3 gap-8">
+          {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
             {/* Service Image */}
             <div className="aspect-video rounded-2xl overflow-hidden bg-[#1A1D2E]">
-              {service.image_url ? (
-                <img src={service.image_url} alt={service.title} className="w-full h-full object-cover" />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#FF6633]/20 to-[#E55A2B]/20">
-                  <Briefcase className="w-20 h-20 text-[#FF6633]/50" />
-                </div>
-              )}
+              {service.image_url ? <img src={service.image_url} alt={service.title} className="w-full h-full object-cover" /> : <div className="flex items-center justify-center h-full"><Briefcase className="w-20 h-20 text-[#FF6633]/50" /></div>}
             </div>
 
             {/* Service Info */}
             <div>
-              {category && (
-                <Badge className="bg-[#FF6633]/10 text-[#FF6633] border-[#FF6633]/30 mb-3">{category.name}</Badge>
-              )}
-              <h1 className="text-2xl lg:text-3xl font-bold text-white mb-4">{service.title}</h1>
-              <p className="text-gray-400 leading-relaxed">{service.description || 'No description provided.'}</p>
+              {category && <Badge className="mb-3">{category.name}</Badge>}
+              <h1 className="text-3xl font-bold text-white mb-4">{service.title}</h1>
+              <p className="text-gray-400">{service.description || 'No description provided.'}</p>
             </div>
 
             {/* Portfolio */}
-            {portfolio.length > 0 && (
+            {portfolio.length > 0 &&
               <div className="card-dark p-6">
                 <h3 className="text-lg font-semibold text-white mb-4">Portfolio</h3>
                 <div className="grid grid-cols-3 gap-3">
                   {portfolio.map(item => (
                     <div key={item.id} className="aspect-square rounded-lg overflow-hidden bg-[#0F1117]">
-                      {item.media_type === 'image' ? (
-                        <img src={item.media_url} alt={item.title} className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-gray-500">{item.media_type}</div>
-                      )}
+                      {item.media_type === 'image' ? <img src={item.media_url} alt={item.title} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-gray-500">{item.media_type}</div>}
                     </div>
                   ))}
                 </div>
               </div>
-            )}
+            }
 
-            {/* Reviews  Browse Services*/}
+            {/* Reviews */}
             <div className="card-dark p-6">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-lg font-semibold text-white">Reviews ({reviews.length})</h3>
-                {avgRating && (
-                  <div className="flex items-center gap-2">
-                    <Star className="w-5 h-5 text-yellow-400 fill-yellow-400" />
-                    <span className="text-white font-semibold">{avgRating}</span>
-                  </div>
-                )}
+                {avgRating && <div className="flex items-center gap-2"><Star className="w-5 h-5 text-yellow-400 fill-yellow-400" /><span className="text-white font-semibold">{avgRating}</span></div>}
               </div>
               {reviews.length > 0 ? (
                 <div className="space-y-4">
@@ -347,9 +234,7 @@ export default function ServiceDetail() {
                           <span className="text-white font-medium">{r.client_name || 'Anonymous'}</span>
                         </div>
                         <div className="flex items-center gap-1">
-                          {[...Array(5)].map((_, i) => (
-                            <Star key={i} className={`w-4 h-4 ${i < r.rating ? 'text-yellow-400 fill-yellow-400' : 'text-gray-600'}`} />
-                          ))}
+                          {[...Array(5)].map((_, i) => <Star key={i} className={`w-4 h-4 ${i < r.rating ? 'text-yellow-400 fill-yellow-400' : 'text-gray-600'}`} />)}
                         </div>
                       </div>
                       {r.comment && <p className="text-gray-400 text-sm">{r.comment}</p>}
@@ -366,139 +251,46 @@ export default function ServiceDetail() {
             </div>
           </div>
 
-          {/* Sidebar  profiles */}
+          {/* Sidebar */}
           <div className="space-y-6">
             <div className="card-dark p-6 sticky top-24">
-              <div className="mb-6">
-                <p className="text-gray-500 text-sm">Starting at</p>
-                <p className="text-3xl font-bold text-[#FF6633]">{formatAmount(service.price)}</p>
-                {service.price_type && <p className="text-gray-500 text-sm capitalize">{service.price_type}</p>}
-              </div>
+              <p className="text-gray-400 text-sm">Starting at</p>
+              <p className="text-3xl font-bold text-[#FF6633]">{formatAmount(service.price)}</p>
 
               {user ? (
-                <Button onClick={() => setHireDialogOpen(true)} className="btn-primary w-full mb-4">
-                  <Briefcase className="w-4 h-4 mr-2" /> Book Package
-                </Button>
+                <Button onClick={() => setHireDialogOpen(true)} className="btn-primary w-full mt-4"><Briefcase className="w-4 h-4 mr-2" />Book Package</Button>
               ) : (
-                <Button onClick={() => setLoginDialogOpen(true)} className="btn-primary w-full mb-4">
-                  Sign in to Book
-                </Button>
+                <Button onClick={() => setLoginDialogOpen(true)} className="btn-primary w-full mt-4"><Lock className="w-4 h-4 mr-2" />Sign in to Book</Button>
               )}
 
               {provider?.phone_number && (
-                <a href={`tel:${provider.phone_number}`}>
-                  <Button variant="outline" className="w-full border-[#2A2D3E] text-black hover:bg-[#1A1D2E]">
-                    <Phone className="w-4 h-4 mr-2" /> Contact Provider
-                  </Button>
-                </a>
+                <a href={`tel:${provider.phone_number}`}><Button variant="outline" className="w-full mt-3"><Phone className="w-4 h-4 mr-2" />Contact Provider</Button></a>
+              )}
+
+              {user && userProfile && provider?.id !== userProfile.id && (
+                <Button variant="outline" className="w-full mt-3" onClick={() => window.location.href = createPageUrl(`Messages?provider=${provider.id}`)}><MessageSquare className="w-4 h-4 mr-2" />Message Provider</Button>
               )}
             </div>
-
-            {/* Message Provider Button */}
-          {provider?.id && userProfile?.id && provider.id !== userProfile.id && (
-            <Button
-              variant="outline"
-              className="w-full border-[#2A2D3E] text-black hover:bg-[#1A1D2E] mt-2"
-              onClick={async () => {
-                try {
-                  // Check if conversation exists
-                  const { data: existingConvo } = await supabase
-                    .from('conversations')
-                    .select('*')
-                    .or(`user_one.eq.${userProfile.id},user_two.eq.${userProfile.id}`)
-                    .eq('user_one', provider.id)
-                    .or('user_two', provider.id)
-                    .single();
-
-                  let convoId;
-
-                  if (existingConvo) {
-                    convoId = existingConvo.id;
-                  } else {
-                    // Create new conversation
-                    const { data: newConvo, error } = await supabase
-                      .from('conversations')
-                      .insert({
-                        user_one: userProfile.id,
-                        user_two: provider.id,
-                        last_message: "",
-                        last_message_time: new Date().toISOString()
-                      })
-                      .select()
-                      .single();
-
-                    if (error) throw error;
-                    convoId = newConvo.id;
-                  }
-
-                  // Redirect to Messages page with conversation
-                  window.location.href = createPageUrl(`Messages?convoId=${convoId}`);
-                } catch (err) {
-                  console.error(err);
-                  toast.error("Failed to start conversation");
-                }
-              }}
-            >
-              <MessageSquare className="w-4 h-4 mr-2" /> Message Provider
-            </Button>
-          )}
-
-            {/* Provider & Other Services */}
-            {provider && (
-              <Link to={createPageUrl(`ProviderProfile?id=${provider.id}`)} className="card-dark p-6 block hover:border-[#FF6633]/30 transition-all">
-                <div className="flex items-center gap-4 mb-4">
-                  <div className="w-16 h-16 rounded-full p-0.5 bg-gradient-to-br from-[#7CB342] to-[#689F38]">
-                    <div className="w-full h-full rounded-full overflow-hidden bg-[#1A1D2E]">
-                      {provider.avatar_url ? (
-                        <img src={provider.avatar_url} alt="" className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#FF6633] to-[#E55A2B]">
-                          <span className="text-xl font-bold text-white">{provider.full_name?.charAt(0)}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div>
-                    <h4 className="text-white font-semibold">{provider.full_name}</h4>
-                    <div className="flex items-center gap-1 text-gray-500 text-sm">
-                      <MapPin className="w-3 h-3" /> {provider.location || 'No location'}
-                    </div>
-                    {avgRating && (
-                      <div className="flex items-center gap-1 mt-1">
-                        <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
-                        <span className="text-white text-sm">{avgRating}</span>
-                        <span className="text-gray-500 text-sm">({reviews.length})</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-                {provider.bio && <p className="text-gray-500 text-sm line-clamp-3">{provider.bio}</p>}
-              </Link>
-            )}
-
-            {otherServices.length > 0 && (
-              <div className="card-dark p-6">
-                <h4 className="text-white font-semibold mb-4">More from this provider</h4>
-                <div className="space-y-3">
-                  {otherServices.map(svc => (
-                    <Link key={svc.id} to={createPageUrl(`ServiceDetail?id=${svc.id}`)} className="flex items-center gap-3 p-3 rounded-xl bg-[#0F1117] border border-[#2A2D3E] hover:border-[#FF6633]/30 transition-all">
-                      <div className="w-12 h-12 rounded-lg overflow-hidden bg-[#2A2D3E] flex-shrink-0">
-                        {svc.image_url ? <img src={svc.image_url} alt="" className="w-full h-full object-cover" /> : <Briefcase className="w-5 h-5 text-gray-600" />}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-white text-sm font-medium truncate">{svc.title}</p>
-                        <p className="text-[#FF6633] text-sm">{formatAmount(svc.price)}</p>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         </div>
       </div>
 
-      {/* Book Package Dialog  Continue to Payment */}
+      {/* LOGIN DIALOG */}
+      <Dialog open={loginDialogOpen} onOpenChange={setLoginDialogOpen}>
+        <DialogContent className="bg-[#1A1D2E] border-[#2A2D3E] max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-white">Login</DialogTitle>
+            <DialogDescription className="text-gray-500">Login with email and password</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 mt-4">
+            <Input type="email" placeholder="Email" value={loginForm.email} onChange={e => setLoginForm({ ...loginForm, email: e.target.value })} className="input-dark" />
+            <Input type="password" placeholder="Password" value={loginForm.password} onChange={e => setLoginForm({ ...loginForm, password: e.target.value })} className="input-dark" />
+            <Button onClick={handleLogin} disabled={submitting} className="w-full">{submitting ? <Loader2 className="animate-spin w-4 h-4" /> : 'Login'}</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* HIRE / BOOK DIALOG */}
       <Dialog open={hireDialogOpen} onOpenChange={setHireDialogOpen}>
         <DialogContent className="bg-[#1A1D2E] border-[#2A2D3E] max-w-md">
           <DialogHeader>
@@ -507,114 +299,36 @@ export default function ServiceDetail() {
           </DialogHeader>
           <div className="space-y-4 mt-4">
             <div className="p-4 rounded-xl bg-[#0F1117] border border-[#2A2D3E]">
-              <div className="flex items-center justify-between mb-4">
-                <span className="text-gray-400">Package Price</span>
-                <span className="text-2xl font-bold text-[#FF6B3D]">{formatAmount(service?.price)}</span>
-              </div>
+              <div className="flex items-center justify-between mb-4"><span className="text-gray-400">Package Price</span><span className="text-2xl font-bold text-[#FF6B3D]">{formatAmount(service?.price)}</span></div>
               {service?.delivery_days && <div className="flex items-center justify-between mb-4"><span className="text-gray-400">Delivery Time</span><span className="text-white">{service.delivery_days} days</span></div>}
-              {service?.deliverables?.length > 0 && (
-                <ul className="space-y-1 text-gray-300 text-sm">
-                  {service.deliverables.map((item, i) => (
-                    <li key={i} className="flex items-start gap-2"><Check className="w-4 h-4 text-[#7CB342] mt-0.5 flex-shrink-0" />{item}</li>
-                  ))}
-                </ul>
-              )}
+              {service?.deliverables?.length > 0 && <ul className="space-y-1 text-gray-300 text-sm">{service.deliverables.map((item, i) => <li key={i} className="flex items-start gap-2"><Check className="w-4 h-4 text-[#7CB342] mt-0.5 flex-shrink-0" />{item}</li>)}</ul>}
             </div>
-            <div className="p-4 rounded-xl bg-green-500/10 border border-green-500/30">
-              <div className="flex items-center gap-2 text-green-400 mb-2"><Check className="w-4 h-4" /><span className="text-sm font-medium">Protected by Escrow</span></div>
-              <p className="text-gray-400 text-xs">Payment held securely until job completion.</p>
-            </div>
-            <Button
-            onClick={() => {
-              console.log('Book Package clicked');
-              handleBookPackage();
-            }}
-            disabled={submitting}
-            className="btn-primary w-full"
-          >
-            {submitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <CreditCard className="w-4 h-4 mr-2" />}
-            {submitting ? 'Processing...' : 'Continue to Payment'}
-          </Button>
+            <div className="p-4 rounded-xl bg-green-500/10 border border-green-500/30 text-green-400">You will be redirected to payment after booking.</div>
+            <Button onClick={handleBookPackage} className="w-full btn-primary" disabled={submitting}>{submitting ? <Loader2 className="animate-spin w-4 h-4" /> : 'Proceed to Payment'}</Button>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Payment Dialog   */}
+      {/* PAYMENT DIALOG */}
       <Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
         <DialogContent className="bg-[#1A1D2E] border-[#2A2D3E] max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-white">Mobile Money Payment</DialogTitle>
-            <DialogDescription className="text-gray-500">Pay {formatAmount(service?.price)} via Mobile Money</DialogDescription>
+            <DialogTitle className="text-white">Payment</DialogTitle>
+            <DialogDescription className="text-gray-500">Pay using mobile money</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 mt-4">
-            <div>
-              <Label className="text-gray-400 mb-2 block">Payment Method</Label>
-              <Select value={paymentForm.method} onValueChange={(v) => setPaymentForm({ ...paymentForm, method: v })}>
-                <SelectTrigger className="input-dark"><SelectValue /></SelectTrigger>
-                <SelectContent className="bg-[#1A1D2E] border-[#2A2D3E]">
-                  <SelectItem value="mtn">MTN Mobile Money</SelectItem>
-                  <SelectItem value="airtel">Airtel Money</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label className="text-gray-400 mb-2 block">Phone Number</Label>
-              <Input type="tel" value={paymentForm.phone} onChange={(e) => setPaymentForm({ ...paymentForm, phone: e.target.value })} placeholder="e.g., 0700123456" className="input-dark" />
-            </div>
-            <div className="p-4 rounded-xl bg-[#0F1117] border border-[#2A2D3E]">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-gray-400">Amount to pay</span>
-                <span className="text-xl font-bold text-white">{formatAmount(service?.price)}</span>
-              </div>
-              <p className="text-gray-500 text-xs">Funds will be locked in escrow until job completion</p>
-            </div>
-            <Button onClick={handlePayment} disabled={submitting} className="btn-primary w-full">
-              {submitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <><CreditCard className="w-4 h-4 mr-2" /> Pay {formatAmount(service?.price)}</>}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-       {/* New Login Dialog */}
-      <Dialog open={loginDialogOpen} onOpenChange={setLoginDialogOpen}>
-        <DialogContent className="bg-[#1A1D2E] border-[#2A2D3E] max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-white">Login</DialogTitle>
-            <DialogDescription className="text-gray-500">Enter your email and password to continue</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 mt-4">
-            {loginError && <div className="text-red-400 text-sm">{loginError}</div>}
-
-            <Input
-              type="email"
-              placeholder="Email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="input-dark"
-            />
-
-            <div className="relative">
-              <Input
-                type={showPassword ? "text" : "password"}
-                placeholder="Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="input-dark"
-              />
-              <button
-                type="button"
-                className="absolute right-3 top-3 text-gray-400"
-                onClick={() => setShowPassword(!showPassword)}
-              >
-                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-              </button>
-            </div>
-
-            <Button onClick={handleLogin} disabled={loginLoading} className="btn-primary w-full">
-              {loginLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : "Login"}
-            </Button>
+            <Input placeholder="Phone Number" value={paymentForm.phone} onChange={e => setPaymentForm({ ...paymentForm, phone: e.target.value })} className="input-dark" />
+            <Select value={paymentForm.method} onValueChange={v => setPaymentForm({ ...paymentForm, method: v })}>
+              <SelectTrigger className="w-full input-dark"><SelectValue placeholder="Payment Method" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="mtn">MTN Mobile Money</SelectItem>
+                <SelectItem value="airtel">Airtel Money</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button onClick={handlePayment} className="w-full btn-primary" disabled={submitting}>{submitting ? <Loader2 className="animate-spin w-4 h-4" /> : 'Pay Now'}</Button>
           </div>
         </DialogContent>
       </Dialog>
     </div>
-  );
+  )
 }
