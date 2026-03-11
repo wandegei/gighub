@@ -62,7 +62,7 @@ export default function ProviderProfile() {
     }
 
     try {
-      // Fetch provider
+      // Fetch provider Hire Now
       let { data: profiles } = await supabase
         .from('profiles')
         .select('*')
@@ -334,7 +334,7 @@ export default function ProviderProfile() {
                 </div>
               )}
 
-              {/* Action Buttons */}
+              {/* Action Buttons  call */}
               <div className="flex flex-col sm:flex-row gap-3 justify-center md:justify-start">
                 {user ? (
                   <Dialog open={hireDialogOpen} onOpenChange={setHireDialogOpen}>
@@ -409,7 +409,7 @@ export default function ProviderProfile() {
                 
                 {provider.phone_number && (
                   <a href={`tel:${provider.phone_number}`}>
-                    <Button variant="outline" className="border-[#2A2D3E] text-white hover:bg-[#2A2D3E] w-full sm:w-auto">
+                    <Button variant="outline" className="border-[#2A2D3E] text-black hover:bg-[#2A2D3E] w-full sm:w-auto">
                       <Phone className="w-4 h-4 mr-2" />
                       Call
                     </Button>

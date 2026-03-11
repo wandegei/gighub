@@ -185,7 +185,7 @@ export default function ServiceDetail() {
   };
 
 
-  /* ---------------- BOOK PACKAGE ---------------- */
+  /* ---------------- BOOK PACKAGE Hire Now---------------- */
 
   const handleBookPackage = async () => {
 
