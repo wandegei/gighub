@@ -27,7 +27,7 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState("");
   const [currentSlide, setCurrentSlide] = useState(0);
 
-  /* HERO SLIDES – Preloaded Videos */
+  /* HERO SLIDES – Preloaded Videos  Latest Jobs Posted */
   const slides = [
     {
       video: "https://cwvfozdugyzkzalbrhpo.supabase.co/storage/v1/object/public/main%20vedios/mechanics.mp4",
@@ -177,7 +177,7 @@ export default function Home() {
           </div>
         </div>
 
-        {/* SLIDER ARROWS */}
+        {/* SLIDER ARROWS   Top Rated Professionals*/}
         <button
           onClick={prevSlide}
           className="absolute left-6 top-1/2 -translate-y-1/2 bg-black/40 p-3 rounded-full text-white"
@@ -193,7 +193,7 @@ export default function Home() {
       </section>
 
       {/* TRUST STATS */}
-      <section className="py-12 bg-white border-y">
+      {/* <section className="py-12 bg-white border-y">
         <div className="max-w-6xl mx-auto grid grid-cols-3 text-center">
           <div>
             <h3 className="text-3xl font-bold text-[#FF6633]">2000+</h3>
@@ -208,10 +208,10 @@ export default function Home() {
             <p className="text-gray-600">Service Categories</p>
           </div>
         </div>
-      </section>
+      </section> */}
 
       {/* JOBS */}
-      <section className="py-16 bg-white">
+      {/* <section className="py-16 bg-white">
         <div className="max-w-7xl mx-auto px-6">
           <h2 className="text-3xl font-bold text-gray-900 mb-10 text-center">
             Latest Jobs Posted
@@ -228,9 +228,9 @@ export default function Home() {
             ))}
           </div>
         </div>
-      </section>
+      </section> */}
 
-      {/* FEATURES */}
+      {/* FEATURE Verified Providers */}
       <section className="py-16 bg-gray-100">
         <div className="max-w-7xl mx-auto px-6">
           <div className="grid md:grid-cols-3 gap-6">
@@ -248,13 +248,13 @@ export default function Home() {
       </section>
 
       {/* FEATURED PROVIDERS */}
-      <section className="py-16 bg-white">
+      {/* <section className="py-16 bg-white">
         <div className="max-w-7xl mx-auto px-6 text-center">
           <h2 className="text-3xl font-bold text-gray-900 mb-4">Top Rated Professionals</h2>
           <p className="text-gray-600 mb-12">Verified providers with excellent ratings</p>
           <FeaturedProviders />
         </div>
-      </section>
+      </section> */}
 
       {/* MAP SECTION */}
       <section className="py-16 bg-[#0A0E1A] text-white text-center">
