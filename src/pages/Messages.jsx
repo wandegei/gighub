@@ -307,8 +307,8 @@ export default function Messages() {
           )}
         </div>
 
-        {/* CHAT */}
-        <div className={`lg:col-span-2 card-dark flex flex-col ${!selectedConvo ? "hidden lg:flex" : ""}`}>
+        {/* CHAT     selectedConvo*/}
+        <div className={`lg:col-span-2 card-dark flex flex-col min-h-0 ${!selectedConvo ? "hidden lg:flex" : ""}`}>
           {selectedConvo ? (
             <>
               <div className="p-4 border-b border-[#1E2430] flex items-center gap-3">
@@ -321,13 +321,18 @@ export default function Messages() {
                 <p className="font-medium text-white">{selectedConvo.otherName}</p>
               </div>
 
-              <div ref={chatRef} className="flex-1 overflow-y-auto p-4 space-y-4">
+              <div
+                ref={chatRef}
+                className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0 scrollbar-thin scrollbar-thumb-gray-700"
+              >
                 {messages.map((msg) => {
                   const isSent = msg.sender_id === profile.id;
                   return (
                     <div key={msg.id} className={`flex ${isSent ? "justify-end" : "justify-start"}`}>
                       <div className={`max-w-[70%] rounded-2xl px-4 py-2 ${isSent ? "bg-gradient-to-r from-[#FF6B3D] to-[#FF5722]" : "bg-[#151922]"}`}>
-                        <p style={{ color: isSent ? "black" : "white" }}>{msg.message}</p>
+                        <p className="break-words" style={{ color: isSent ? "black" : "white" }}>
+                        {msg.message}
+                      </p>
                         <p className={`text-xs mt-1 ${isSent ? "text-black/70" : "text-gray-500"}`}>
                           {format(new Date(msg.created_at), "h:mm a")}
                         </p>
