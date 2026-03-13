@@ -72,6 +72,7 @@ import Messages from './pages/Messages';
 import PostJob from './pages/PostJob';
 import Pricing from './pages/Pricing';
 import ProviderProfile from './pages/ProviderProfile';
+import MyReferrals from './pages/MyReferrals';
 import Providers from './pages/Providers';
 import ServiceDetail from './pages/ServiceDetail';
 import __Layout from './Layout.jsx';
@@ -82,6 +83,7 @@ export const PAGES = {
     "CategoryProviders": CategoryProviders,
     "CompleteProfile": CompleteProfile,
     "Dashboard": Dashboard,
+    "MyReferrals": MyReferrals,
     "DashboardJobs": DashboardJobs,
     "DashboardNotifications": DashboardNotifications,
     "DashboardOrders": DashboardOrders,

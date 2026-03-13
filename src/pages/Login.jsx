@@ -1,29 +1,49 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { Eye, EyeOff } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
 
 export default function Login() {
-  const [mode, setMode] = useState("login"); // login | signup
+
+  const [mode, setMode] = useState("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [referralCode, setReferralCode] = useState("");
 
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // Auto redirect if already logged in
+  const [searchParams] = useSearchParams();
+
   useEffect(() => {
-    checkUser();
+    initPage();
   }, []);
 
-  const checkUser = async () => {
+  const initPage = async () => {
+
+    /* ---------- CHECK REFERRAL LINK ---------- */
+
+    const ref = searchParams.get("ref");
+
+    if (ref) {
+      setReferralCode(ref);
+      setMode("signup");
+    }
+
+    /* ---------- CHECK IF USER ALREADY LOGGED IN ---------- */
+
     const { data } = await supabase.auth.getUser();
-    if (data?.user) {
+
+    if (data?.user && !ref) {
       window.location.href = "/Dashboard";
     }
   };
 
+  /* ---------- LOGIN ---------- */
+
   const handleLogin = async () => {
+
     setError("");
 
     if (!email || !password) {
@@ -47,7 +67,10 @@ export default function Login() {
     }
   };
 
+  /* ---------- SIGNUP ---------- */
+
   const handleSignup = async () => {
+
     setError("");
 
     if (!email || !password) {
@@ -59,7 +82,12 @@ export default function Login() {
 
     const { error } = await supabase.auth.signUp({
       email,
-      password
+      password,
+      options: {
+        data: {
+          referral_code: referralCode || null
+        }
+      }
     });
 
     setLoading(false);
@@ -73,15 +101,19 @@ export default function Login() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#0F1117] px-4">
+
       <div className="bg-[#1A1D2E] w-full max-w-md p-8 rounded-2xl shadow-xl">
 
         {/* Title */}
+
         <h2 className="text-2xl font-bold text-white text-center mb-6">
           Welcome to GigHub
         </h2>
 
         {/* Tabs */}
+
         <div className="flex mb-6 bg-[#0F1117] rounded-lg p-1">
+
           <button
             onClick={() => setMode("login")}
             className={`flex-1 py-2 rounded-lg text-sm ${
@@ -103,9 +135,11 @@ export default function Login() {
           >
             Sign Up
           </button>
+
         </div>
 
-        {/* Error message */}
+        {/* Error */}
+
         {error && (
           <div className="bg-red-500/10 border border-red-500 text-red-400 text-sm p-3 rounded-lg mb-4">
             {error}
@@ -113,6 +147,7 @@ export default function Login() {
         )}
 
         {/* Email */}
+
         <input
           type="email"
           placeholder="Email"
@@ -122,7 +157,9 @@ export default function Login() {
         />
 
         {/* Password */}
-        <div className="relative mb-6">
+
+        <div className="relative mb-4">
+
           <input
             type={showPassword ? "text" : "password"}
             placeholder="Password"
@@ -138,35 +175,61 @@ export default function Login() {
           >
             {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
           </button>
+
         </div>
 
-        {/* Login button */}
+        {/* Referral Code */}
+
+        {mode === "signup" && referralCode && (
+
+          <div className="mb-4">
+
+            <label className="text-gray-400 text-sm mb-1 block">
+              Referral Code
+            </label>
+
+            <input
+              type="text"
+              readOnly
+              value={referralCode}
+              className="w-full p-3 rounded-lg bg-[#0F1117] text-white border border-[#2A2D3E]"
+              onFocus={(e) => e.target.select()}
+            />
+
+          </div>
+
+        )}
+
+        {/* Button */}
+
         {mode === "login" ? (
+
           <button
             onClick={handleLogin}
             disabled={loading}
             className="w-full bg-[#FF6633] hover:bg-[#e05528] text-white py-3 rounded-lg font-medium flex items-center justify-center"
           >
-            {loading ? (
-              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-            ) : (
-              "Login"
-            )}
+            {loading
+              ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+              : "Login"}
           </button>
+
         ) : (
+
           <button
             onClick={handleSignup}
             disabled={loading}
             className="w-full bg-[#FF6633] hover:bg-[#e05528] text-white py-3 rounded-lg font-medium flex items-center justify-center"
           >
-            {loading ? (
-              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-            ) : (
-              "Create Account"
-            )}
+            {loading
+              ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+              : "Create Account"}
           </button>
+
         )}
+
       </div>
+
     </div>
   );
 }
