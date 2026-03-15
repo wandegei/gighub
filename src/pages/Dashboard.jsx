@@ -195,14 +195,14 @@ export default function Dashboard() {
                 <input
                   type="text"
                   readOnly
-                  value={`${window.location.origin}/login?ref=${profile.referral_code}`}
+                  value={`${window.location.origin}/ReferralRedirect?code=${profile.referral_code}`}
                   className="flex-1 p-3 rounded-lg bg-[#0F1117] text-white border border-[#2A2D3E]"
                   onFocus={(e) => e.target.select()}
                 />
                 <Button
                   onClick={() => {
                     navigator.clipboard.writeText(
-                      `${window.location.origin}/login?ref=${profile.referral_code}`
+                    `${window.location.origin}/ReferralRedirect?code=${profile.referral_code}`
                     );
                     toast.success("Referral link copied!");
                   }}

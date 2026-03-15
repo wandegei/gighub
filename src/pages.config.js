@@ -71,6 +71,7 @@ import MapSearch from './pages/MapSearch';
 import Messages from './pages/Messages';
 import PostJob from './pages/PostJob';
 import Pricing from './pages/Pricing';
+import ReferralRedirect from './pages/ReferralRedirect';
 import ProviderProfile from './pages/ProviderProfile';
 import MyReferrals from './pages/MyReferrals';
 import Providers from './pages/Providers';
@@ -84,6 +85,7 @@ export const PAGES = {
     "CompleteProfile": CompleteProfile,
     "Dashboard": Dashboard,
     "MyReferrals": MyReferrals,
+    "ReferralRedirect": ReferralRedirect,
     "DashboardJobs": DashboardJobs,
     "DashboardNotifications": DashboardNotifications,
     "DashboardOrders": DashboardOrders,
