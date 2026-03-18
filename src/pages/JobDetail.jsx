@@ -209,6 +209,42 @@ export default function JobDetail() {
     loadData();
   };
 
+// handleFlutterwavePayment
+const handleFlutterwavePayment = async () => {
+  try {
+    setProcessing(true);
+
+    const { data, error } = await supabase.functions.invoke(
+      "supabase-functions-new-flutterwave-payment",
+      {
+        body: {
+          amount: job.agreed_amount,
+          email: user.email,
+          job_id: job.id,
+        },
+      }
+    );
+
+    if (error) throw error;
+
+    console.log("Flutterwave response:", data);
+
+    if (data?.data?.link) {
+      window.location.href = data.data.link;
+    } else {
+      toast.error("Failed to initialize payment");
+    }
+
+  } catch (err) {
+    console.error(err);
+    toast.error("Payment failed to start");
+  } finally {
+    setProcessing(false);
+  }
+};
+// handleFlutterwavePayment
+
+
   const handleStartJob = async () => {
     setProcessing(true);
     await supabase.from('jobs').update({ status: 'in_progress' }).eq('id', job.id);
@@ -292,7 +328,7 @@ export default function JobDetail() {
 
     await supabase.from('jobs').update({ status: 'completed', completed_at: new Date().toISOString() }).eq('id', job.id);
 
-    // Update provider wallet
+    // Update provider wallet  pending
     const { data: providerWallet } = await supabase
       .from('wallets')
       .select('*')
@@ -386,7 +422,7 @@ export default function JobDetail() {
 
   return (
     <div className="p-6 lg:p-8">
-      {/* Main Job content here remains mostly unchanged */}
+      {/* Main Job content here remains mostly unchanged   handleFundJob */}
       {/* ...the rest of the JSX can remain as is, only logic for Base44 replaced with Supabase */}
       <div className="p-6 lg:p-8">
       <div className="max-w-4xl mx-auto">
@@ -478,7 +514,7 @@ export default function JobDetail() {
 
           {/* Action Buttons  tx.created_date */}
           <div className="pt-6 border-t border-[#2A2D3E] flex flex-wrap gap-3">
-            {isClient && job.status === 'pending' && (
+            {/* {isClient && job.status === 'pending' && (
               <Button 
                 onClick={() => setConfirmDialog({ open: true, action: 'fund' })}
                 className="btn-primary"
@@ -486,7 +522,22 @@ export default function JobDetail() {
                 <Lock className="w-4 h-4 mr-2" />
                 Fund Job ({formatAmount(job.agreed_amount)})
               </Button>
-            )}
+            )} */}
+
+            {isClient && job.status === 'pending' && (
+                <Button 
+                  onClick={handleFlutterwavePayment}
+                  disabled={processing}
+                  className="btn-primary"
+                >
+                  {processing ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Lock className="w-4 h-4 mr-2" />
+                  )}
+                  Pay with Flutterwave ({formatAmount(job.agreed_amount)})
+                </Button>
+              )}
             
             {isProvider && job.status === 'funded' && (
               <Button 
