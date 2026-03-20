@@ -1,39 +1,58 @@
-
-import { serve } from "https://deno.land/std/http/server.ts";
+import { serve } from "https://deno.land/std@0.201.0/http/server.ts";
 
 serve(async (req) => {
+  const headers: Record<string, string> = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Content-Type": "application/json",
+  };
 
-  const { amount, email, job_id } = await req.json();
+  if (req.method === "OPTIONS") return new Response(null, { headers, status: 204 });
 
-  const tx_ref = "tx-" + Date.now();
+  try {
+    const { amount, email, job_id } = await req.json();
 
-  const redirectUrl = `https://gighub-smoky.vercel.app/JobDetail?id=${job_id}`;
+    if (!amount || !email || !job_id) {
+      return new Response(JSON.stringify({ message: "Missing fields" }), { status: 400, headers });
+    }
 
-  const response = await fetch("https://api.flutterwave.com/v3/payments", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${Deno.env.get("FLWSECK_TEST-94d2f60d5cfdfc7b3e4d4851d4af04f7-X")}`,
-    },
-    body: JSON.stringify({
-      tx_ref: tx_ref,
-      amount: amount,
-      currency: "UGX",
-      redirect_url: redirectUrl,
-      payment_options: "card,mobilemoneyuganda",
-      customer: {
-        email: email,
+    const FLW_SECRET_KEY = Deno.env.get("FLW_SECRET_KEY");
+    if (!FLW_SECRET_KEY) return new Response(JSON.stringify({ message: "Flutterwave key missing" }), { status: 500, headers });
+
+    const tx_ref = `tx-${Date.now()}`;
+
+    const flutterwaveRes = await fetch("https://api.flutterwave.com/v3/payments", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${FLW_SECRET_KEY}`,
       },
-      customizations: {
-        title: "GigHub Payment",
-        description: "Service Payment",
-      },
-    }),
-  });
+      body: JSON.stringify({
+        tx_ref,
+        amount,
+        currency: "UGX",
+        redirect_url: `https://gighub-smoky.vercel.app/JobDetail?id=${job_id}`,
+        payment_options: "card,mobilemoneyuganda",
+        customer: { email },
+        customizations: { title: "GigHub Payment", description: "Service Payment" },
+      }),
+    });
 
-  const data = await response.json();
+    const data = await flutterwaveRes.json();
 
-  return new Response(JSON.stringify(data), {
-    headers: { "Content-Type": "application/json" },
-  });
+    if (!flutterwaveRes.ok) {
+      return new Response(JSON.stringify({ message: "Flutterwave failed", details: data }), { status: 500, headers });
+    }
+
+    // ✅ Return only the payment link
+    const paymentLink = data?.data?.link;
+    if (!paymentLink) {
+      return new Response(JSON.stringify({ message: "No payment link returned by Flutterwave" }), { status: 500, headers });
+    }
+
+    return new Response(JSON.stringify({ link: paymentLink }), { status: 200, headers });
+  } catch (err) {
+    return new Response(JSON.stringify({ message: err.message }), { status: 500, headers });
+  }
 });

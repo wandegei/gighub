@@ -55,7 +55,7 @@ export default function ServiceDetail(){
 
   const [loginDialogOpen,setLoginDialogOpen] = useState(false)
   const [hireDialogOpen,setHireDialogOpen] = useState(false)
-  const [paymentDialogOpen,setPaymentDialogOpen] = useState(false)
+  // const [paymentDialogOpen,setPaymentDialogOpen] = useState(false)
 
   const [loginForm,setLoginForm] = useState({email:'',password:''})
   const [paymentForm,setPaymentForm] = useState({phone:'',method:'mtn'})
@@ -155,7 +155,7 @@ export default function ServiceDetail(){
       ? (reviews.reduce((sum,r)=>sum+r.rating,0)/reviews.length).toFixed(1)
       : null
 
-  /* ------------------- LOGIN ------------------- */
+  /* ------------------- LOGIN   Review package before payment------------------- */
   async function handleLogin(){
     if(!loginForm.email || !loginForm.password){
       toast.error("Enter email and password")
@@ -181,89 +181,96 @@ export default function ServiceDetail(){
   }
 
   /* ------------------- BOOK ------------------- */
-  async function handleBookPackage(){
-    if(!userProfile || !provider || !service){
-      toast.error("Service still loading")
-      return
-    }
-    setSubmitting(true)
-    const {data:job,error} = await supabase
-      .from('jobs')
+async function handleBookPackage() {
+  if (!userProfile || !provider || !service) {
+    toast.error("Service or user data not ready yet");
+    return;
+  }
+
+  try {
+    setSubmitting(true);
+
+    const { data: job, error: jobError } = await supabase
+      .from("jobs")
       .insert({
-        client_id:userProfile.id,
-        provider_id:provider.id,
-        title:service.title,
-        description:service.description,
-        agreed_amount:parseFloat(service.price),
-        status:'pending'
+        client_id: userProfile.id,
+        provider_id: provider.id,
+        title: service.title,
+        description: service.description,
+        agreed_amount: parseFloat(service.price),
+        status: "pending",
       })
       .select()
-      .single()
-    if(error){ toast.error(error.message); setSubmitting(false); return }
-    setCreatedJobId(job.id)
-    setHireDialogOpen(false)
-    setPaymentDialogOpen(true)
-    setSubmitting(false)
-  }
+      .single();
 
-  /* ------------------- PAYMENT ------------------- */
-  async function handlePayment(){
-    if(!paymentForm.phone){ toast.error("Enter phone number"); return }
-    setSubmitting(true)
-
-    let {data:wallets} = await supabase
-      .from('wallets')
-      .select('*')
-      .eq('user_id',user.id)
-    let wallet = wallets?.[0]
-
-    if(!wallet){
-      const {data:newWallet} = await supabase
-        .from('wallets')
-        .insert({
-          user_id:user.id,
-          balance:0,
-          available_balance:0,
-          locked_balance:0
-        })
-        .select()
-        .single()
-      wallet = newWallet
+    if (jobError) {
+      toast.error("Failed to create job: " + jobError.message);
+      return;
     }
 
-    const amount = parseFloat(service.price)
-    await supabase
-      .from('wallets')
-      .update({
-        balance:(wallet.balance||0)+amount,
-        locked_balance:(wallet.locked_balance||0)+amount
-      })
-      .eq('id',wallet.id)
+    setHireDialogOpen(false);
 
-    await supabase
-      .from('jobs')
-      .update({status:'funded'})
-      .eq('id',createdJobId)
+    // Trigger payment immediately
+    await handlePayment(job.id);
+  } catch (err) {
+    console.error("Booking failed:", err);
+    toast.error("Booking failed");
+  } finally {
+    setSubmitting(false);
+  }
+}
 
-    await supabase
-      .from('transactions')
-      .insert({
-        job_id:createdJobId,
-        from_wallet_id:wallet.id,
-        from_email:user.email,
-        amount,
-        type:'escrow_lock',
-        description:`${paymentForm.method} payment for ${service.title}`,
-        status:'completed'
-      })
-
-    toast.success("Payment successful")
-    setPaymentDialogOpen(false)
-    setSubmitting(false)
-    window.location.href = createPageUrl(`JobDetail?id=${createdJobId}`)
+  /* ------------------- PAYMENT ------------------- */
+async function handlePayment(jobId) {
+  if (!user || !jobId || !service) {
+    toast.error("Missing required data for payment");
+    return;
   }
 
-  /* ------------------- MESSAGING ------------------- */
+  try {
+    setSubmitting(true); // show loading state
+
+    const amount = Number(service.price);
+
+    const response = await fetch(
+      "https://cwvfozdugyzkzalbrhpo.supabase.co/functions/v1/supabase-functions-new-flutterwave-payment",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amount,
+          email: user.email,
+          job_id: jobId,
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({}));
+      console.error("Payment function error:", errData);
+      toast.error(errData.message || "Payment request failed");
+      return;
+    }
+
+    const result = await response.json().catch(() => ({}));
+    console.log("Payment function result:", result);
+
+    if (result?.link) {
+      // ✅ Redirect user to payment link
+      window.location.href = result.link;
+    } else {
+      toast.error("No payment link returned");
+      console.error("Payment link missing in response:", result);
+    }
+  } catch (err) {
+    console.error("Payment failed:", err);
+    toast.error("Payment failed");
+  } finally {
+    setSubmitting(false); // stop loading
+  }
+}
+
+  /* ------------------- MESSAGING  ------------------- */
  async function openMessage() {
   console.log("Client profile id:", userProfile?.id);
   console.log("Provider profile id:", provider?.id);
@@ -284,7 +291,7 @@ export default function ServiceDetail(){
   }
 
   try {
-    // 1️⃣ Check if a conversation already exists between these two users
+    // 1️⃣ Check if a conversation already exists between these two users setPaymentDialogOpen 
     const { data: existing, error: fetchError } = await supabase
       .from("conversations")
       .select("*")
@@ -439,31 +446,8 @@ export default function ServiceDetail(){
         </DialogContent>
       </Dialog>
 
-      {/* PAYMENT DIALOG  openMessage */}
-      <Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
-        <DialogContent className="bg-[#1A1D2E] border-[#2A2D3E] max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-white">Payment</DialogTitle>
-            <DialogDescription className="text-gray-500">Pay using mobile money</DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 mt-4">
-            <Input placeholder="Phone Number" value={paymentForm.phone} onChange={e=>setPaymentForm({...paymentForm,phone:e.target.value})}/>
-
-            <Select value={paymentForm.method} onValueChange={v=>setPaymentForm({...paymentForm,method:v})}>
-              <SelectTrigger><SelectValue placeholder="Payment Method"/></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="mtn">MTN Mobile Money</SelectItem>
-                <SelectItem value="airtel">Airtel Money</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Button onClick={handlePayment} className="w-full btn-primary" disabled={submitting}>
-              {submitting ? <Loader2 className="animate-spin w-4 h-4"/> : 'Pay Now'}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* PAYMENT DIALOG  handlePayment paymentDialogOpen */}
+      
 
     </div>
   )
