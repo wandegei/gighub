@@ -36,7 +36,7 @@ export default function Login() {
     const { data } = await supabase.auth.getUser();
 
     if (data?.user && !ref) {
-      window.location.href = "/Dashboard";
+      window.location.href = "/";
     }
   };
 
@@ -63,7 +63,7 @@ export default function Login() {
     if (error) {
       setError(error.message);
     } else {
-      window.location.href = "/Dashboard";
+      window.location.href = "/";
     }
   };
 
@@ -178,7 +178,7 @@ export default function Login() {
 
         </div>
 
-        {/* Referral Code */}
+        {/* Referral Code  */}
 
         {mode === "signup" && referralCode && (
 

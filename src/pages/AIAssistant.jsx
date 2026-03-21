@@ -14,9 +14,11 @@ export default function AIAssistant() {
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
 
+  // Determine function base URL dynamically (local or deployed)
+  const baseURL = "https://cwvfozdugyzkzalbrhpo.functions.supabase.co";
+
   useEffect(() => {
     const loadData = async () => {
-      // Get user from Supabase
       const { data: { user: supaUser }, error } = await supabase.auth.getUser();
       if (error || !supaUser) {
         toast.error("Failed to fetch user");
@@ -25,16 +27,13 @@ export default function AIAssistant() {
       }
       setUser(supaUser);
 
-      // Fetch provider profile from Supabase 'profiles' table
       const { data: profileData } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("user_id", supaUser.id)
-      .maybeSingle();
+        .from("profiles")
+        .select("*")
+        .eq("user_id", supaUser.id)
+        .maybeSingle();
 
-    if (profileData) {
-      setProfile(profileData);
-    }
+      if (profileData) setProfile(profileData);
 
       // Initial assistant message
       setMessages([
@@ -48,8 +47,8 @@ export default function AIAssistant() {
 • Profile optimization
 • Business advice
 
-How can I help you today?`
-        }
+How can I help you today?`,
+        },
       ]);
 
       setLoading(false);
@@ -67,23 +66,39 @@ How can I help you today?`
     setSending(true);
 
     try {
-      const context = `You are a helpful AI assistant for service providers on GigHub, a freelance marketplace platform in Uganda. 
-The user is ${profile?.full_name || "a provider"} (${profile?.user_type || "provider"}). 
+      const context = `You are a helpful AI assistant for service providers and clients on GigHub, a freelance marketplace platform in Uganda. 
+The user is ${profile?.full_name || "a user"} (${profile?.user_type || "unknown"}). 
 Provide practical, actionable advice specific to the Ugandan market and service industry.`;
 
-      // Replace this with your LLM call  user.email
-      const response = await fetch("/api/ai-assistant", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: `${context}\n\nUser question: ${userMessage}` })
-      }).then((res) => res.json());
+      // Call the deployed Supabase Edge Function
+      const session = await supabase.auth.getSession();
 
-      setMessages((prev) => [...prev, { role: "assistant", content: response.answer }]);
+  const response = await fetch(
+    `${baseURL}/supabase-functions-new-ai-assistant`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${session.data.session?.access_token}`,
+      },
+      body: JSON.stringify({
+        prompt: `${context}\n\nUser question: ${userMessage}`,
+      }),
+    }
+  );
+
+      if (!response.ok) throw new Error("AI request failed");
+
+      const data = await response.json();
+
+      setMessages((prev) => [...prev, { role: "assistant", content: data.answer }]);
     } catch (error) {
-      toast.error("Failed to get response");
+      console.error(error);
+      toast.error("Failed to get AI response");
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: "Sorry, I encountered an error. Please try again." }
+        { role: "assistant", content: "Sorry, I encountered an error. Please try again." },
       ]);
     }
 
@@ -101,13 +116,14 @@ Provide practical, actionable advice specific to the Ugandan market and service 
     );
   }
 
-  if (profile?.user_type !== "provider") {
+  // Allow both providers and clients
+  if (!["provider", "client"].includes(profile?.user_type)) {
     return (
       <div className="p-6 lg:p-8">
         <div className="card-dark p-12 text-center">
           <Bot className="w-12 h-12 text-gray-600 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-white mb-2">
-            AI Assistant is for providers only
+            AI Assistant is for registered users only
           </h3>
         </div>
       </div>
@@ -127,7 +143,10 @@ Provide practical, actionable advice specific to the Ugandan market and service 
         <div className="card-dark flex flex-col" style={{ height: "calc(100vh - 300px)" }}>
           <div className="flex-1 overflow-y-auto p-6 space-y-4">
             {messages.map((msg, index) => (
-              <div key={index} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+              <div
+                key={index}
+                className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+              >
                 <div
                   className={`max-w-[80%] rounded-2xl px-4 py-3 ${
                     msg.role === "user"
