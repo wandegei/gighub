@@ -155,7 +155,7 @@ export default function ServiceDetail(){
       ? (reviews.reduce((sum,r)=>sum+r.rating,0)/reviews.length).toFixed(1)
       : null
 
-  /* ------------------- LOGIN   Review package before payment------------------- */
+  /* ------------------- LOGIN   Review package before payment--  verified----------------- */
   async function handleLogin(){
     if(!loginForm.email || !loginForm.password){
       toast.error("Enter email and password")
@@ -270,7 +270,7 @@ async function handlePayment(jobId) {
   }
 }
 
-  /* ------------------- MESSAGING  ------------------- */
+  /* ------------------- MESSAGING   provider_id ------------------- */
  async function openMessage() {
   console.log("Client profile id:", userProfile?.id);
   console.log("Provider profile id:", provider?.id);

@@ -14,7 +14,6 @@ export default function AIAssistant() {
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
 
-  // Determine function base URL dynamically (local or deployed)
   const baseURL = "https://cwvfozdugyzkzalbrhpo.functions.supabase.co";
 
   useEffect(() => {
@@ -35,7 +34,6 @@ export default function AIAssistant() {
 
       if (profileData) setProfile(profileData);
 
-      // Initial assistant message
       setMessages([
         {
           role: "assistant",
@@ -58,66 +56,51 @@ How can I help you today?`,
   }, []);
 
   const handleSend = async () => {
-    if (!input.trim() || sending) return;
+  if (!input.trim() || sending) return;
 
-    const userMessage = input.trim();
-    setInput("");
-    setMessages((prev) => [...prev, { role: "user", content: userMessage }]);
-    setSending(true);
+  const userMessage = input.trim();
+  setInput("");
+  setMessages((prev) => [...prev, { role: "user", content: userMessage }]);
+  setSending(true);
 
-    try {
-      const context = `You are a helpful AI assistant for service providers and clients on GigHub, a freelance marketplace platform in Uganda. 
-The user is ${profile?.full_name || "a user"} (${profile?.user_type || "unknown"}). 
-Provide practical, actionable advice specific to the Ugandan market and service industry.`;
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) throw new Error("You must be logged in");
 
-      // Call the deployed Supabase Edge Function
-      const session = await supabase.auth.getSession();
+    // Use dynamic prompt, but fallback to a simple test prompt
+    const context = `You are a helpful AI assistant for GigHub (Uganda).
+User: ${profile?.full_name || "User"}
+Role: ${profile?.user_type || "unknown"}`;
 
-  const response = await fetch(
-    `${baseURL}/supabase-functions-new-ai-assistant`,
-    {
+    const prompt = `${context}\n\nUser question: ${userMessage || "Hello AI! Respond briefly for testing."}`;
+
+    const response = await fetch(`${baseURL}/supabase-functions-new-ai-assistant`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
-        Authorization: `Bearer ${session.data.session?.access_token}`,
+        Authorization: `Bearer ${session.access_token}`,
       },
-      body: JSON.stringify({
-        prompt: `${context}\n\nUser question: ${userMessage}`,
-      }),
-    }
-  );
+      body: JSON.stringify({ prompt }),
+    });
 
-      if (!response.ok) throw new Error("AI request failed");
+    if (!response.ok) throw new Error("Request failed");
 
-      const data = await response.json();
+    const data = await response.json();
+    console.log("AI RESPONSE:", data);
 
-      setMessages((prev) => [...prev, { role: "assistant", content: data.answer }]);
-    } catch (error) {
-      console.error(error);
-      toast.error("Failed to get AI response");
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: "Sorry, I encountered an error. Please try again." },
-      ]);
-    }
-
-    setSending(false);
-  };
-
-  if (loading) {
-    return (
-      <div className="p-6 lg:p-8">
-        <div className="animate-pulse">
-          <div className="h-8 bg-[#1E2430] rounded w-48 mb-6" />
-          <div className="h-96 bg-[#1E2430] rounded-xl" />
-        </div>
-      </div>
-    );
+    setMessages((prev) => [...prev, { role: "assistant", content: data.answer }]);
+  } catch (error) {
+    console.error("HANDLE SEND ERROR:", error);
+    setMessages((prev) => [...prev, { role: "assistant", content: "⚠️ Something went wrong. Please try again." }]);
   }
 
-  // Allow both providers and clients
-  if (!["provider", "client"].includes(profile?.user_type)) {
+  setSending(false);
+};
+
+  if (loading) return <div className="p-6 lg:p-8">Loading...</div>;
+
+  if (!["provider", "client"].includes(profile?.user_type))
     return (
       <div className="p-6 lg:p-8">
         <div className="card-dark p-12 text-center">
@@ -128,7 +111,6 @@ Provide practical, actionable advice specific to the Ugandan market and service 
         </div>
       </div>
     );
-  }
 
   return (
     <div className="p-6 lg:p-8">
@@ -142,11 +124,8 @@ Provide practical, actionable advice specific to the Ugandan market and service 
       <div className="max-w-4xl mx-auto">
         <div className="card-dark flex flex-col" style={{ height: "calc(100vh - 300px)" }}>
           <div className="flex-1 overflow-y-auto p-6 space-y-4">
-            {messages.map((msg, index) => (
-              <div
-                key={index}
-                className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-              >
+            {messages.map((msg, idx) => (
+              <div key={idx} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                 <div
                   className={`max-w-[80%] rounded-2xl px-4 py-3 ${
                     msg.role === "user"
@@ -160,7 +139,6 @@ Provide practical, actionable advice specific to the Ugandan market and service 
                       components={{
                         p: ({ children }) => <p className="text-white mb-2 last:mb-0">{children}</p>,
                         ul: ({ children }) => <ul className="text-white list-disc ml-4 mb-2">{children}</ul>,
-                        ol: ({ children }) => <ol className="text-white list-decimal ml-4 mb-2">{children}</ol>,
                         li: ({ children }) => <li className="text-white mb-1">{children}</li>,
                         strong: ({ children }) => <strong className="text-[#FF6B3D]">{children}</strong>,
                       }}
@@ -187,7 +165,7 @@ Provide practical, actionable advice specific to the Ugandan market and service 
               <Textarea
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                onKeyPress={(e) => {
+                onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey) {
                     e.preventDefault();
                     handleSend();
