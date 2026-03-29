@@ -40,7 +40,7 @@ export default function Home() {
       subtitle: "Get quality work from verified professionals",
     },
     {
-      video: "https://cwvfozdugyzkzalbrhpo.supabase.co/storage/v1/object/public/main%20vedios/cleaners.mp4",
+      video: "https://cwvfozdugyzkzalbrhpo.supabase.co/storage/v1/object/public/main%20vedios/GigHub%20App_1.mp4",
       title: "Professional Cleaning Services",
       subtitle: "Reliable cleaners ready to help",
     },
