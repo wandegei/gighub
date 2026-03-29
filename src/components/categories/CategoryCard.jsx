@@ -19,7 +19,7 @@ export default function CategoryCard({ category }) {
       </div>
       <div className="p-4">
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-white group-hover:text-[#FF6633] transition-colors">
+          <h3 className="text-lg font-semibold text-black group-hover:text-[#FF6633] transition-colors">
             {category.name}
           </h3>
           <ChevronRight className="w-5 h-5 text-gray-500 group-hover:text-[#FF6633] group-hover:translate-x-1 transition-all" />

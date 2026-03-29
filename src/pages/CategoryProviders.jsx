@@ -189,7 +189,7 @@ export default function CategoryProviders() {
 
         <Link
           to={createPageUrl("Categories")}
-          className="inline-flex items-center gap-2 text-gray-400 hover:text-white mb-6 transition-colors"
+          className="inline-flex items-center gap-2 text-gray-400 hover:text-black mb-6 transition-colors"
         >
           <ChevronLeft className="w-4 h-4" />
           Back to Categories
@@ -201,7 +201,7 @@ export default function CategoryProviders() {
 
           {category ? (
             <>
-              <h1 className="text-3xl sm:text-4xl font-bold text-white mb-3">
+              <h1 className="text-3xl sm:text-4xl font-bold text-black mb-3">
                 {category.name}
               </h1>
 
@@ -212,7 +212,7 @@ export default function CategoryProviders() {
               )}
             </>
           ) : (
-            <h1 className="text-3xl sm:text-4xl font-bold text-white mb-3">
+            <h1 className="text-3xl sm:text-4xl font-bold text-black mb-3">
               All Providers
             </h1>
           )}
