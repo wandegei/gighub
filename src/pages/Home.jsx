@@ -39,11 +39,11 @@ export default function Home() {
       title: "Hire Builders For Any Project",
       subtitle: "Get quality work from verified professionals",
     },
-    {
-      video: "https://cwvfozdugyzkzalbrhpo.supabase.co/storage/v1/object/public/main%20vedios/GigHub%20App_1.mp4",
-      title: "Professional Cleaning Services",
-      subtitle: "Reliable cleaners ready to help",
-    },
+    // {
+    //   video: "https://cwvfozdugyzkzalbrhpo.supabase.co/storage/v1/object/public/main%20vedios/GigHub%20App_1.mp4",
+    //   title: "Professional Cleaning Services",
+    //   subtitle: "Reliable cleaners ready to help",
+    // },
     {
       video: "https://cwvfozdugyzkzalbrhpo.supabase.co/storage/v1/object/public/main%20vedios/barbers.mp4",
       title: "Barbers & Personal Services",
