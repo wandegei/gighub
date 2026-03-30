@@ -30,38 +30,51 @@ export default function JobPostings() {
   }, []);
 
   const loadData = async () => {
-    setLoading(true);
+    try {
+      setLoading(true);
 
-    // Fetch job postings and categories in parallel  profiles?.length 
-    const [postingsRes, categoriesRes] = await Promise.all([
-      supabase
-        .from('jobs')
-        .select('*')
-        .eq('status', 'open')
-        .order('created_at', { ascending: false }),
-      supabase
-        .from('Categories')
-        .select('*')
-        .order('name', { ascending: true })
-    ]);
-
-    if (postingsRes.data) setPostings(postingsRes.data);
-    if (categoriesRes.data) setCategories(categoriesRes.data);
-
-    // Get current user
-    const { data: { user: authUser } } = await supabase.auth.getUser();
-    if (authUser) {
+      // ---------- GET AUTH USER ----------
+      const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
+      if (authError || !authUser) {
+        console.error("Auth error:", authError);
+        setLoading(false);
+        return;
+      }
       setUser(authUser);
-      const { data: profiles } = await supabase
-        .from('Profiles')
+
+      // ---------- LOAD PROFILE ----------
+      const { data: profiles, error: profileError } = await supabase
+        .from('profiles')
         .select('*')
         .eq('email', authUser.email)
         .limit(1);
+
+      if (profileError) console.error("Profile load error:", profileError);
+
       const currentProfile = profiles?.[0];
       if (currentProfile) setProfile(currentProfile);
-    }
 
-    setLoading(false);
+      // ---------- LOAD JOBS & CATEGORIES ----------
+      const [jobsRes, categoriesRes] = await Promise.all([
+        supabase
+          .from('jobs')
+          .select('*')
+          .in('status', ['pending', 'funding', 'in_progress'])
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('categories') // lowercase
+          .select('*')
+          .order('name', { ascending: true })
+      ]);
+
+      if (jobsRes.data) setPostings(jobsRes.data);
+      if (categoriesRes.data) setCategories(categoriesRes.data);
+
+    } catch (error) {
+      console.error("Load data error:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const getCategory = (id) => categories.find(c => c.id === id);
@@ -72,15 +85,15 @@ export default function JobPostings() {
     return `UGX ${min.toLocaleString()} - ${max.toLocaleString()}`;
   };
 
-  let filteredPostings = postings.filter(posting => {
+  const filteredPostings = postings.filter(posting => {
     const matchesSearch = posting.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           posting.description?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = categoryFilter === 'all' || posting.category_id === categoryFilter;
-    const matchesBudget = budgetFilter === 'all' || 
+    const matchesBudget = budgetFilter === 'all' ||
                          (budgetFilter === 'low' && posting.budget_max && posting.budget_max < 500000) ||
                          (budgetFilter === 'mid' && posting.budget_min && posting.budget_min >= 500000 && posting.budget_max && posting.budget_max < 2000000) ||
                          (budgetFilter === 'high' && posting.budget_min && posting.budget_min >= 2000000);
-    
+
     return matchesSearch && matchesCategory && matchesBudget;
   });
 
