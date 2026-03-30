@@ -52,10 +52,10 @@ export default function DashboardJobs() {
     if (profiles?.length > 0) setProfile(profiles[0]);
 
     // Load jobs
-    const { data: allJobs } = await supabase
-      .from("jobs")
-      .select("*")
-      .order("created_date", { ascending: false });
+   const { data: allJobs } = await supabase
+  .from("JobPostings")
+  .select("*")
+  .order("created_at", { ascending: false });
 
     // Filter jobs for this user (case-insensitive)
     const userEmail = currentUser.email?.trim().toLowerCase();

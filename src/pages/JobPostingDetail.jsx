@@ -69,7 +69,7 @@ export default function JobPostingDetail() {
       if (apps) setApplications(apps);
     }
 
-    // Load current user
+    // Load current userd
     const { data: { user: authUser } } = await supabase.auth.getUser();
     if (authUser) {
       setUser(authUser);
