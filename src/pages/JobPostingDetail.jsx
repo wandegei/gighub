@@ -44,7 +44,7 @@ export default function JobPostingDetail() {
 
     // Load job posting
     const { data: postings } = await supabase
-      .from('JobPostings')
+      .from('jobs')
       .select('*')
       .eq('id', id)
       .limit(1);
@@ -54,10 +54,10 @@ export default function JobPostingDetail() {
       // Load category
       if (postings[0].category_id) {
         const { data: cats } = await supabase
-          .from('Categories')
-          .select('*')
-          .eq('id', postings[0].category_id)
-          .limit(1);
+        .from('categories')
+        .select('*')
+        .eq('id', postings[0].category_id)
+        .limit(1);
         if (cats?.length > 0) setCategory(cats[0]);
       }
 
@@ -74,10 +74,10 @@ export default function JobPostingDetail() {
     if (authUser) {
       setUser(authUser);
       const { data: profiles } = await supabase
-        .from('Profiles')
-        .select('*')
-        .eq('email', authUser.email)
-        .limit(1);
+      .from('profiles')
+      .select('*')
+      .eq('email', authUser.email)
+      .limit(1);
       if (profiles?.length > 0) setProfile(profiles[0]);
     }
 
