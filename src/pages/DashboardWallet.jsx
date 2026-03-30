@@ -164,7 +164,8 @@ export default function DashboardWallet() {
 
     setProcessing(true);
 
-    // Update wallet
+    // Update wallet  Available
+
     await supabase.from("wallets").update({
       balance: (wallet.balance || 0) - amount,
       available_balance: (wallet.available_balance || 0) - amount
@@ -233,7 +234,7 @@ export default function DashboardWallet() {
   return (
     <div className="p-6 lg:p-8">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+      {/* <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div>
           <h1 className="text-2xl lg:text-3xl font-bold text-white mb-2">My Wallet</h1>
           <p className="text-gray-500">Manage your funds and transactions</p>
@@ -253,7 +254,7 @@ export default function DashboardWallet() {
             Withdraw
           </Button>
         </div>
-      </div>
+      </div> */}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Wallet Card */}
