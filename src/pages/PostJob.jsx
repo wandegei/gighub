@@ -81,7 +81,7 @@ export default function PostJob() {
     setSubmitting(true);
 
     const { data: posting, error } = await supabase
-      .from('JobPosting')
+      .from('jobs')
       .insert({
         client_id: profile.id,
         client_email: user.email,

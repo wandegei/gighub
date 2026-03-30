@@ -29,45 +29,62 @@ export default function DashboardJobs() {
   }, []);
 
   const loadData = async () => {
-    setLoading(true);
+  setLoading(true);
 
-    // Get authenticated user
-    const {
-      data: { user: currentUser },
-      error: userError,
-    } = await supabase.auth.getUser();
+  // 1️⃣ Get user
+  const {
+    data: { user: currentUser },
+    error: userError,
+  } = await supabase.auth.getUser();
 
-    if (userError || !currentUser) {
-      window.location.href = createPageUrl("CompleteProfile");
-      return;
-    }
-    setUser(currentUser);
+  if (userError || !currentUser) {
+    window.location.href = createPageUrl("CompleteProfile");
+    return;
+  }
 
-    // Load profile
-    const { data: profiles } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("user_email", currentUser.email);
+  setUser(currentUser);
 
-    if (profiles?.length > 0) setProfile(profiles[0]);
+  // 2️⃣ Get profile FIRST
+  const { data: profiles, error: profileError } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("user_id", currentUser.id)
+    .single(); // 👈 important
 
-    // Load jobs
-   const { data: allJobs } = await supabase
-  .from("JobPostings")
-  .select("*")
-  .order("created_at", { ascending: false });
-
-    // Filter jobs for this user (case-insensitive)
-    const userEmail = currentUser.email?.trim().toLowerCase();
-    const userJobs = (allJobs || []).filter(
-      (j) =>
-        j.client_email?.trim().toLowerCase() === userEmail ||
-        j.provider_email?.trim().toLowerCase() === userEmail
-    );
-
-    setJobs(userJobs);
+  if (profileError || !profiles) {
+    console.error("Profile error:", profileError);
     setLoading(false);
-  };
+    return;
+  }
+
+  setProfile(profiles);
+
+  // 3️⃣ NOW load jobs AFTER profile exists   
+  const { data: allJobs, error: jobsError } = await supabase
+    .from("jobs")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (jobsError) {
+    console.error("Jobs error:", jobsError);
+    setLoading(false);
+    return;
+  }
+
+  // 4️⃣ Filter using VALID profile.id
+  const userJobs = (allJobs || []).filter(
+    (j) =>
+      j.client_id === profiles.id ||
+      j.provider_id === profiles.id
+  );
+
+  console.log("PROFILE ID:", profiles.id);
+  console.log("ALL JOBS:", allJobs);
+  console.log("USER JOBS:", userJobs);
+
+  setJobs(userJobs);
+  setLoading(false);
+};
 
   const filteredJobs = jobs.filter((job) => {
     const query = searchQuery.toLowerCase();
@@ -81,10 +98,10 @@ export default function DashboardJobs() {
     let matchesRole = true;
     const userEmail = user?.email?.trim().toLowerCase();
     if (roleFilter === "client") {
-      matchesRole = job.client_email?.trim().toLowerCase() === userEmail;
-    } else if (roleFilter === "provider") {
-      matchesRole = job.provider_email?.trim().toLowerCase() === userEmail;
-    }
+  matchesRole = job.client_id === profile?.id;
+} else if (roleFilter === "provider") {
+  matchesRole = job.provider_id === profile?.id;
+}
 
     return matchesSearch && matchesStatus && matchesRole;
   });
@@ -174,7 +191,7 @@ export default function DashboardJobs() {
         </TabsList>
       </Tabs>
 
-      {/* Jobs List */}
+      {/* Jobs List  loadData */}
       {loading ? (
         <div className="space-y-4">
           {[...Array(5)].map((_, i) => (
@@ -188,7 +205,7 @@ export default function DashboardJobs() {
       ) : filteredJobs.length > 0 ? (
         <div className="space-y-4">
           {filteredJobs.map((job) => (
-            <JobCard key={job.id} job={job} userEmail={user?.email} />
+            <JobCard job={job} userProfile={profile} />
           ))}
         </div>
       ) : (

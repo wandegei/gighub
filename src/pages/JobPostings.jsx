@@ -32,10 +32,10 @@ export default function JobPostings() {
   const loadData = async () => {
     setLoading(true);
 
-    // Fetch job postings and categories in parallel
+    // Fetch job postings and categories in parallel  profiles?.length 
     const [postingsRes, categoriesRes] = await Promise.all([
       supabase
-        .from('JobPostings')
+        .from('jobs')
         .select('*')
         .eq('status', 'open')
         .order('created_at', { ascending: false }),
@@ -57,7 +57,8 @@ export default function JobPostings() {
         .select('*')
         .eq('email', authUser.email)
         .limit(1);
-      if (profiles?.length > 0) setProfile(profiles[0]);
+      const currentProfile = profiles?.[0];
+      if (currentProfile) setProfile(currentProfile);
     }
 
     setLoading(false);
