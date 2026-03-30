@@ -336,7 +336,7 @@ export default function DashboardOrders() {
   return (
     <div className="p-6 lg:p-8">
 
-      <div className="flex justify-between mb-8">
+      {/* <div className="flex justify-between mb-8">
 
         <div>
 
@@ -359,7 +359,7 @@ export default function DashboardOrders() {
           Create Order
         </Button>
 
-      </div>
+      </div> */}
 
       <Tabs defaultValue="incoming">
 

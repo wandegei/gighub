@@ -612,9 +612,9 @@ const handleFlutterwavePayment = async () => {
               <TabsTrigger value="transactions" className="data-[state=active]:bg-[#FF6633] data-[state=active]:text-white">
                 Transactions ({transactions.length})
               </TabsTrigger>
-              <TabsTrigger value="orders" className="data-[state=active]:bg-[#FF6633] data-[state=active]:text-white">
+              {/* <TabsTrigger value="orders" className="data-[state=active]:bg-[#FF6633] data-[state=active]:text-white">
                 Orders ({orders.length})
-              </TabsTrigger>
+              </TabsTrigger> */}
             </TabsList>
             
             <TabsContent value="transactions">
@@ -645,7 +645,7 @@ const handleFlutterwavePayment = async () => {
               )}
             </TabsContent>
             
-            <TabsContent value="orders">
+            {/* <TabsContent value="orders">
               {orders.length > 0 ? (
                 <div className="space-y-3">
                   {orders.map((order) => (
@@ -675,7 +675,7 @@ const handleFlutterwavePayment = async () => {
                   <p className="text-gray-500">No internal orders</p>
                 </div>
               )}
-            </TabsContent>
+            </TabsContent> */}
           </Tabs>
         </div>
       </div>
