@@ -75,6 +75,7 @@ import ReferralRedirect from './pages/ReferralRedirect';
 import ProviderProfile from './pages/ProviderProfile';
 import MyReferrals from './pages/MyReferrals';
 import Providers from './pages/Providers';
+import AdminDashboard from './pages/AdminDashboard';
 import ServiceDetail from './pages/ServiceDetail';
 import __Layout from './Layout.jsx';
 
@@ -103,6 +104,7 @@ export const PAGES = {
     "Login": Login,
     "MapSearch": MapSearch,
     "Messages": Messages,
+    "AdminDashboard": AdminDashboard,
     "PostJob": PostJob,
     "Pricing": Pricing,
     "ProviderProfile": ProviderProfile,

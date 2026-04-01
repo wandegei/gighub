@@ -253,12 +253,16 @@ export default function Layout({ children, currentPageName }) {
                       <ChevronDown className="w-4 h-4 text-gray-400" />
                     </button>
                   </DropdownMenuTrigger>
+                  
+
                   <DropdownMenuContent align="end" className="w-56 bg-[#1A1D2E] border-[#2A2D3E]">
                     <div className="px-3 py-2 border-b border-[#2A2D3E]">
                       <p className="text-sm font-medium text-white">{profile?.full_name || 'User'}</p>
                       <p className="text-xs text-gray-500">{user?.email}</p>
                     </div>
-                    <DropdownMenuItem asChild>
+                    <DropdownMenuItem
+// @ts-ignore
+                    DropdownMenuItem asChild>
                       <Link to={createPageUrl('Dashboard')} className="cursor-pointer text-gray-300 hover:text-white">
                         <LayoutDashboard className="w-4 h-4 mr-2" />
                         Dashboard
@@ -276,6 +280,15 @@ export default function Layout({ children, currentPageName }) {
                         Wallet
                       </Link>
                     </DropdownMenuItem>
+                    {/* Admin Dashboard */}
+                {profile?.user_type === "admin" && (
+                  <DropdownMenuItem asChild>
+                    <Link to={createPageUrl('AdminDashboard')}  className="cursor-pointer text-gray-300 hover:text-white">
+                      <Settings className="mr-2 h-4 w-4" />
+                      Admin Dashboard
+                    </Link>
+                  </DropdownMenuItem>
+                )}
                     <DropdownMenuSeparator className="bg-[#2A2D3E]" />
                     <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-red-400 hover:text-red-300">
                       <LogOut className="w-4 h-4 mr-2" />
