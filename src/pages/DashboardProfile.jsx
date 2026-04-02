@@ -88,7 +88,7 @@ export default function DashboardProfile() {
         }
       }
 
-      // Load categories
+      // Load categories  user_email
       const { data: cats } = await supabase
         .from("categories")
         .select("*")
@@ -147,87 +147,84 @@ export default function DashboardProfile() {
   };
 
   const handleSave = async () => {
-    if (!user) return;
+  if (!user) return;
 
-    if (!formData.full_name) {
-      toast.error("Please enter your name");
-      return;
+  if (!formData.full_name) {
+    toast.error("Please enter your name");
+    return;
+  }
+
+  setSaving(true);
+
+  try {
+    let profileId = profile?.id;
+
+    if (!profile) {
+      // 🔹 Create profile with referral code  formData
+      const referralCode = generateReferralCode(formData.full_name);
+      const referralUsed = user.user_metadata?.referral_code || null;
+
+      const { data: newProfile, error } = await supabase
+        .from("profiles")
+        .insert({
+          ...formData,
+          user_id: user.id,
+          referral_code: referralCode,
+          referred_by: referralUsed
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      profileId = newProfile.id;
+      setProfile(newProfile);
+
+      // Create wallet
+      await supabase.from("wallets").upsert(
+        {
+          user_id: user.id,
+          balance: 0
+        },
+        { onConflict: "user_id" }
+      );
+    } else {
+      // Update profile
+      await supabase
+        .from("profiles")
+        .update(formData)
+        .eq("user_id", user.id);
     }
 
-    setSaving(true);
+    // Update provider categories
+    if (formData.user_type === "provider") {
+      await supabase
+        .from("provider_categories")
+        .delete()
+        .eq("provider_id", profileId);
 
-    try {
-      let profileId = profile?.id;
+      if (selectedCategories.length > 0) {
+        const inserts = selectedCategories.map((catId) => ({
+          provider_id: profileId,
+          category_id: catId
+        }));
 
-      if (!profile) {
-        // 🔹 Create profile with referral code
-        const referralCode = generateReferralCode(formData.full_name);
-
-        const referralUsed = user.user_metadata?.referral_code || null;
-
-        const { data: newProfile, error } = await supabase
-          .from("profiles")
-          .insert({
-            ...formData,
-            user_id: user.id,
-            user_email: user.email,
-            referral_code: referralCode,
-            referred_by: referralUsed
-          })
-          .select()
-          .single();
-
-        if (error) throw error;
-
-        profileId = newProfile.id;
-
-        setProfile(newProfile);
-
-        // Create wallet
-        await supabase.from("wallets").upsert(
-          {
-            user_id: user.id,
-            balance: 0
-          },
-          { onConflict: "user_id" }
-        );
-      } else {
-        // Update profile
-        await supabase
-          .from("profiles")
-          .update(formData)
-          .eq("user_id", user.id);
-      }
-
-      // Update provider categories
-      if (formData.user_type === "provider") {
         await supabase
           .from("provider_categories")
-          .delete()
-          .eq("provider_id", profileId);
-
-        if (selectedCategories.length > 0) {
-          const inserts = selectedCategories.map((catId) => ({
-            provider_id: profileId,
-            category_id: catId
-          }));
-
-          await supabase
-            .from("provider_categories")
-            .insert(inserts);
-        }
+          .insert(inserts);
       }
-
-      toast.success("Profile saved successfully");
-
-      await loadProfile();
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to save profile");
     }
 
-    setSaving(false);
-  };
+    toast.success("Profile saved successfully");
+    await loadProfile();
+
+  } catch (err) {
+    console.error(err);
+    toast.error("Failed to save profile");
+  }
+
+  setSaving(false);
+};
 
   if (loading) {
     return <div className="p-8 text-white">Loading profile...</div>;
@@ -361,7 +358,7 @@ export default function DashboardProfile() {
             </div>
           )}
 
-          {/* Provider Categories  newProfile */}
+          {/* Provider Categories  newProfile  handleSave */}
           {formData.user_type === "provider" && (
             <div>
               <Label className="text-gray-400 mb-2 block">

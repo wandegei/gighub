@@ -19,6 +19,9 @@ export default function Messages() {
   const [otherTyping, setOtherTyping] = useState(false);
   const chatRef = useRef(null);
 
+  // Ref for typing channel
+  const typingChannelRef = useRef(null);
+
   /* ------------------------------- */
   /* LOAD USER & PROFILE */
   /* ------------------------------- */
@@ -79,7 +82,7 @@ export default function Messages() {
         };
       });
 
-      // Count unread messages safely
+      // Count unread messages
       for (let convo of convos) {
         const { data: unreadData } = await supabase
           .from("messages")
@@ -195,56 +198,73 @@ export default function Messages() {
   /* ------------------------------- */
   /* TYPING INDICATOR */
   /* ------------------------------- */
-  const handleTyping = async (e) => {
-    setNewMessage(e.target.value);
-    if (!selectedConvo || !profile) return;
+  useEffect(() => {
+    if (!profile) return;
 
-    try {
-      await supabase.channel("typing").httpSend({
+    const channel = supabase.channel("typing-channel");
+
+    // subscribe (no .then())
+    channel.subscribe();
+
+    channel.on("broadcast", { event: "typing" }, (payload) => {
+      if (
+        payload.payload.user_id !== profile.id &&
+        payload.payload.conversation_id === selectedConvo?.id
+      ) {
+        setOtherTyping(true);
+        setTimeout(() => setOtherTyping(false), 2000);
+      }
+    });
+
+    typingChannelRef.current = channel;
+
+    return () => {
+      supabase.removeChannel(channel);
+      typingChannelRef.current = null;
+    };
+  }, [profile, selectedConvo]);
+
+  const handleTyping = (e) => {
+    setNewMessage(e.target.value);
+
+    if (!selectedConvo?.id || !profile?.id) return;
+    if (!typingChannelRef.current) return;
+
+    typingChannelRef.current
+      .send({
         type: "broadcast",
         event: "typing",
         payload: {
           conversation_id: selectedConvo.id,
           user_id: profile.id,
         },
-      });
-    } catch (err) {
-      console.error("Typing broadcast failed:", err);
-    }
+      })
+      .catch((err) => console.error("Typing broadcast failed:", err));
   };
 
   /* ------------------------------- */
-  /* REALTIME UPDATES */
+  /* REALTIME MESSAGES */
   /* ------------------------------- */
   useEffect(() => {
     if (!profile) return;
 
     const channel = supabase.channel("messages-system");
 
-    channel
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "messages" },
-        (payload) => {
-          const msg = payload.new;
-          if (msg.sender_id === profile.id || msg.receiver_id === profile.id) {
-            if (selectedConvo?.id === msg.conversation_id) {
-              setMessages((prev) => [...prev, msg]);
-            }
-            loadConversations(profile.id);
+    channel.on(
+      "postgres_changes",
+      { event: "INSERT", schema: "public", table: "messages" },
+      (payload) => {
+        const msg = payload.new;
+        if (msg.sender_id === profile.id || msg.receiver_id === profile.id) {
+          if (selectedConvo?.id === msg.conversation_id) {
+            setMessages((prev) => [...prev, msg]);
           }
+          loadConversations(profile.id);
         }
-      )
-      .on("broadcast", { event: "typing" }, (payload) => {
-        if (
-          payload.payload.user_id !== profile.id &&
-          payload.payload.conversation_id === selectedConvo?.id
-        ) {
-          setOtherTyping(true);
-          setTimeout(() => setOtherTyping(false), 2000);
-        }
-      })
-      .subscribe();
+      }
+    );
+
+    channel.subscribe();
 
     return () => supabase.removeChannel(channel);
   }, [profile, selectedConvo]);
@@ -266,7 +286,6 @@ export default function Messages() {
     <div className="p-6 lg:p-8">
       <h1 className="text-2xl lg:text-3xl font-bold text-white mb-6">Messages</h1>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 h-[calc(100vh-200px)]">
-
         {/* CONVERSATIONS */}
         <div className={`card-dark p-4 overflow-y-auto ${selectedConvo ? "hidden lg:block" : ""}`}>
           <div className="relative mb-4">
@@ -307,7 +326,7 @@ export default function Messages() {
           )}
         </div>
 
-        {/* CHAT     selectedConvo*/}
+        {/* CHAT */}
         <div className={`lg:col-span-2 card-dark flex flex-col min-h-0 ${!selectedConvo ? "hidden lg:flex" : ""}`}>
           {selectedConvo ? (
             <>
@@ -329,10 +348,14 @@ export default function Messages() {
                   const isSent = msg.sender_id === profile.id;
                   return (
                     <div key={msg.id} className={`flex ${isSent ? "justify-end" : "justify-start"}`}>
-                      <div className={`max-w-[70%] rounded-2xl px-4 py-2 ${isSent ? "bg-gradient-to-r from-[#FF6B3D] to-[#FF5722]" : "bg-[#151922]"}`}>
+                      <div
+                        className={`max-w-[70%] rounded-2xl px-4 py-2 ${
+                          isSent ? "bg-gradient-to-r from-[#FF6B3D] to-[#FF5722]" : "bg-[#151922]"
+                        }`}
+                      >
                         <p className="break-words" style={{ color: isSent ? "black" : "white" }}>
-                        {msg.message}
-                      </p>
+                          {msg.message}
+                        </p>
                         <p className={`text-xs mt-1 ${isSent ? "text-black/70" : "text-gray-500"}`}>
                           {format(new Date(msg.created_at), "h:mm a")}
                         </p>
