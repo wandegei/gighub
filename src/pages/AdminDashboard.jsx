@@ -57,16 +57,25 @@ export default function AdminDashboard() {
   };
 
   const banUser = async (id) => {
-    await supabase.from("profiles").update({ is_banned: true }).eq("id", id);
-    loadData();
-  };
+  const { error } = await supabase
+    .from("profiles")
+    .update({ is_banned: true })
+    .eq("id", id);
+
+  console.log(error);
+  loadData();
+};
 
   const deleteUser = async (id) => {
-    await supabase.from("profiles").delete().eq("id", id);
-    loadData();
-  };
+  await supabase
+    .from("profiles")
+    .update({ is_deleted: true })
+    .eq("id", id);
 
-  // ================= SERVICES =================
+  loadData();
+};
+
+  // ================= SERVICES  filteredUsers =================
 
   const approveService = async (id) => {
     await supabase
@@ -81,7 +90,9 @@ export default function AdminDashboard() {
     loadData();
   };
 
-  const filteredUsers = users.filter((u) =>
+  const filteredUsers = users
+  .filter(u => !u.is_deleted)
+  .filter(u =>
     u.full_name?.toLowerCase().includes(search.toLowerCase())
   );
 
@@ -169,7 +180,7 @@ export default function AdminDashboard() {
           </div>
         </TabsContent>
 
-        {/* SERVICES TAB */}
+        {/* SERVICES TAB  deleteUser */}
         <TabsContent value="services">
           <div className="space-y-2">
             {filteredServices.map((s) => (
