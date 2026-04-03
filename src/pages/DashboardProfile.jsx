@@ -32,7 +32,6 @@ export default function DashboardProfile() {
     avatar_url: ""
   });
 
-  // 🔹 Referral code generator
   const generateReferralCode = (name) => {
     const random = Math.floor(100 + Math.random() * 900);
     const prefix =
@@ -46,25 +45,34 @@ export default function DashboardProfile() {
 
   const loadProfile = async () => {
     setLoading(true);
+    console.log("🔄 Loading profile...");
 
     try {
       const {
-        data: { user }
+        data: { user },
+        error: authError
       } = await supabase.auth.getUser();
 
+      if (authError) throw authError;
+
+      console.log("👤 Auth user:", user);
+
       if (!user) {
-        setLoading(false);
+        console.warn("⚠️ No user found");
         return;
       }
 
       setUser(user);
 
-      // Load profile
-      const { data: profileData } = await supabase
+      const { data: profileData, error: profileError } = await supabase
         .from("profiles")
         .select("*")
         .eq("user_id", user.id)
         .maybeSingle();
+
+      console.log("📦 Profile:", { profileData, profileError });
+
+      if (profileError) throw profileError;
 
       if (profileData) {
         setProfile(profileData);
@@ -79,25 +87,32 @@ export default function DashboardProfile() {
         });
 
         if (profileData.user_type === "provider") {
-          const { data: relations } = await supabase
+          const { data: relations, error: relError } = await supabase
             .from("provider_categories")
             .select("category_id")
             .eq("provider_id", profileData.id);
+
+          console.log("📂 Provider categories:", { relations, relError });
+
+          if (relError) throw relError;
 
           setSelectedCategories(relations?.map((r) => r.category_id) || []);
         }
       }
 
-      // Load categories  user_email
-      const { data: cats } = await supabase
+      const { data: cats, error: catError } = await supabase
         .from("categories")
         .select("*")
         .order("name");
 
+      console.log("📚 Categories:", { cats, catError });
+
+      if (catError) throw catError;
+
       setCategories(cats || []);
     } catch (err) {
-      console.error(err);
-      toast.error("Failed to load profile");
+      console.error("❌ LOAD ERROR:", err);
+      toast.error(err.message || "Failed to load profile");
     }
 
     setLoading(false);
@@ -110,30 +125,34 @@ export default function DashboardProfile() {
     if (!file) return;
 
     setUploading(true);
+    console.log("📤 Uploading image...");
 
-    const fileExt = file.name.split(".").pop();
-    const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+    try {
+      const fileExt = file.name.split(".").pop();
+      const fileName = `${user.id}/${Date.now()}.${fileExt}`;
 
-    const { error } = await supabase.storage
-      .from("profiles")
-      .upload(fileName, file);
+      const { error: uploadError } = await supabase.storage
+        .from("profiles")
+        .upload(fileName, file);
 
-    if (error) {
-      toast.error("Image upload failed");
-      setUploading(false);
-      return;
+      if (uploadError) throw uploadError;
+
+      const { data } = supabase.storage
+        .from("profiles")
+        .getPublicUrl(fileName);
+
+      console.log("✅ Uploaded:", data);
+
+      setFormData((prev) => ({
+        ...prev,
+        avatar_url: data.publicUrl
+      }));
+
+      toast.success("Image uploaded");
+    } catch (err) {
+      console.error("❌ UPLOAD ERROR:", err);
+      toast.error(err.message || "Image upload failed");
     }
-
-    const { data } = supabase.storage
-      .from("profiles")
-      .getPublicUrl(fileName);
-
-    setFormData((prev) => ({
-      ...prev,
-      avatar_url: data.publicUrl
-    }));
-
-    toast.success("Image uploaded");
 
     setUploading(false);
   };
@@ -147,84 +166,103 @@ export default function DashboardProfile() {
   };
 
   const handleSave = async () => {
-  if (!user) return;
+    if (!user) return;
 
-  if (!formData.full_name) {
-    toast.error("Please enter your name");
-    return;
-  }
-
-  setSaving(true);
-
-  try {
-    let profileId = profile?.id;
-
-    if (!profile) {
-      // 🔹 Create profile with referral code  formData
-      const referralCode = generateReferralCode(formData.full_name);
-      const referralUsed = user.user_metadata?.referral_code || null;
-
-      const { data: newProfile, error } = await supabase
-        .from("profiles")
-        .insert({
-          ...formData,
-          user_id: user.id,
-          referral_code: referralCode,
-          referred_by: referralUsed
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      profileId = newProfile.id;
-      setProfile(newProfile);
-
-      // Create wallet
-      await supabase.from("wallets").upsert(
-        {
-          user_id: user.id,
-          balance: 0
-        },
-        { onConflict: "user_id" }
-      );
-    } else {
-      // Update profile
-      await supabase
-        .from("profiles")
-        .update(formData)
-        .eq("user_id", user.id);
+    if (!formData.full_name) {
+      toast.error("Please enter your name");
+      return;
     }
 
-    // Update provider categories
-    if (formData.user_type === "provider") {
-      await supabase
-        .from("provider_categories")
-        .delete()
-        .eq("provider_id", profileId);
+    setSaving(true);
+    console.log("💾 Saving profile...");
 
-      if (selectedCategories.length > 0) {
-        const inserts = selectedCategories.map((catId) => ({
-          provider_id: profileId,
-          category_id: catId
-        }));
+    try {
+      let profileId = profile?.id;
 
-        await supabase
-          .from("provider_categories")
-          .insert(inserts);
+      if (!profile) {
+        console.log("🆕 Creating profile...");
+
+        const referralCode = generateReferralCode(formData.full_name);
+        const referralUsed = user.user_metadata?.referral_code || null;
+
+        const { data: newProfile, error } = await supabase
+          .from("profiles")
+          .insert({
+            ...formData,
+            user_id: user.id,
+            referral_code: referralCode,
+            referred_by: referralUsed
+          })
+          .select()
+          .single();
+
+        console.log("🆕 INSERT RESULT:", { newProfile, error });
+
+        if (error) throw error;
+
+        profileId = newProfile.id;
+        setProfile(newProfile);
+
+        const { error: walletError } = await supabase.from("wallets").upsert(
+          { user_id: user.id, balance: 0 },
+          { onConflict: "user_id" }
+        );
+
+        if (walletError) throw walletError;
+      } else {
+        console.log("✏️ Updating profile...");
+
+        const { data, error } = await supabase
+          .from("profiles")
+          .update({
+            ...formData,
+            user_id: user.id // 🔥 REQUIRED FOR RLS
+          })
+          .eq("user_id", user.id)
+          .select()
+          .single();
+
+        console.log("✏️ UPDATE RESULT:", { data, error });
+
+        if (error) throw error;
+
+        setProfile(data);
+        profileId = data.id;
       }
+
+      if (formData.user_type === "provider") {
+        console.log("🔄 Updating categories...");
+
+        const { error: deleteError } = await supabase
+          .from("provider_categories")
+          .delete()
+          .eq("provider_id", profileId);
+
+        if (deleteError) throw deleteError;
+
+        if (selectedCategories.length > 0) {
+          const inserts = selectedCategories.map((catId) => ({
+            provider_id: profileId,
+            category_id: catId
+          }));
+
+          const { error: insertError } = await supabase
+            .from("provider_categories")
+            .insert(inserts);
+
+          if (insertError) throw insertError;
+        }
+      }
+
+      toast.success("Profile saved successfully");
+      await loadProfile();
+    } catch (err) {
+      console.error("❌ SAVE ERROR:", err);
+      toast.error(err.message || "Failed to save profile");
     }
 
-    toast.success("Profile saved successfully");
-    await loadProfile();
-
-  } catch (err) {
-    console.error(err);
-    toast.error("Failed to save profile");
-  }
-
-  setSaving(false);
-};
+    setSaving(false);
+  };
 
   if (loading) {
     return <div className="p-8 text-white">Loading profile...</div>;
@@ -237,11 +275,9 @@ export default function DashboardProfile() {
       </h1>
 
       <div className="card-dark p-6 lg:p-8">
-
         {/* Avatar */}
         <div className="flex flex-col items-center mb-8">
           <div className="relative w-32 h-32 rounded-full overflow-hidden bg-[#1A1D2E]">
-
             {formData.avatar_url ? (
               <img
                 src={formData.avatar_url}
@@ -271,94 +307,69 @@ export default function DashboardProfile() {
         </div>
 
         <div className="space-y-6">
+          <Label className="text-gray-400">Full Name</Label>
+          <Input
+            value={formData.full_name}
+            onChange={(e) =>
+              setFormData({ ...formData, full_name: e.target.value })
+            }
+            className="input-dark"
+          />
 
-          <div>
-            <Label className="text-gray-400">Full Name</Label>
-            <Input
-              value={formData.full_name}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  full_name: e.target.value
-                })
-              }
-              className="input-dark"
-            />
-          </div>
+          <Label className="text-gray-400">Account Type</Label>
+          <Select
+            value={formData.user_type}
+            onValueChange={(v) =>
+              setFormData({ ...formData, user_type: v })
+            }
+          >
+            <SelectTrigger className="input-dark">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="client">Client</SelectItem>
+              <SelectItem value="provider">Provider</SelectItem>
+            </SelectContent>
+          </Select>
 
-          <div>
-            <Label className="text-gray-400">Account Type</Label>
-            <Select
-              value={formData.user_type}
-              onValueChange={(v) =>
-                setFormData({ ...formData, user_type: v })
-              }
-            >
-              <SelectTrigger className="input-dark">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="client">Client</SelectItem>
-                <SelectItem value="provider">Provider</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          <Label className="text-gray-400">Phone</Label>
+          <Input
+            value={formData.phone_number}
+            onChange={(e) =>
+              setFormData({ ...formData, phone_number: e.target.value })
+            }
+            className="input-dark"
+          />
 
-          <div>
-            <Label className="text-gray-400">Phone</Label>
-            <Input
-              value={formData.phone_number}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  phone_number: e.target.value
-                })
-              }
-              className="input-dark"
-            />
-          </div>
+          <Label className="text-gray-400">Location</Label>
+          <Input
+            value={formData.location}
+            onChange={(e) =>
+              setFormData({ ...formData, location: e.target.value })
+            }
+            className="input-dark"
+          />
 
-          <div>
-            <Label className="text-gray-400">Location</Label>
-            <Input
-              value={formData.location}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  location: e.target.value
-                })
-              }
-              className="input-dark"
-            />
-          </div>
+          <Label className="text-gray-400">Bio</Label>
+          <Textarea
+            value={formData.bio}
+            onChange={(e) =>
+              setFormData({ ...formData, bio: e.target.value })
+            }
+            className="input-dark"
+          />
 
-          <div>
-            <Label className="text-gray-400">Bio</Label>
-            <Textarea
-              value={formData.bio}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  bio: e.target.value
-                })
-              }
-              className="input-dark"
-            />
-          </div>
-
-          {/* Referral link */}
           {profile?.referral_code && formData.user_type === "provider" && (
-            <div>
+            <>
               <Label className="text-gray-400">Your Referral Link</Label>
               <Input
                 readOnly
                 value={`${window.location.origin}/signup?ref=${profile.referral_code}`}
                 className="input-dark"
               />
-            </div>
+            </>
           )}
 
-          {/* Provider Categories  newProfile  handleSave */}
           {formData.user_type === "provider" && (
             <div>
               <Label className="text-gray-400 mb-2 block">
@@ -396,7 +407,6 @@ export default function DashboardProfile() {
             )}
             Save Profile
           </Button>
-
         </div>
       </div>
     </div>
