@@ -23,7 +23,7 @@ export default function Dashboard() {
   const [profile, setProfile] = useState(null);
   const [wallet, setWallet] = useState(null);
 
-  const [jobs, setJobs] = useState([]);       // recent jobs
+  const [jobs, setJobs] = useState([]);       // recent jobs  
   const [allJobs, setAllJobs] = useState([]); // all jobs (for stats)
 
   const [referrals, setReferrals] = useState([]);
@@ -163,7 +163,7 @@ export default function Dashboard() {
         ))}
 
         {/* Referral Earnings */}
-        {profile?.user_type === "provider" && (
+        {/* {profile?.user_type === "provider" && (
           <div className="card-dark p-5">
             <div className="flex items-center justify-between">
               <div>
@@ -182,7 +182,7 @@ export default function Dashboard() {
               View Referral Details
             </Button>
           </div>
-        )}
+        )} */}
       </div>
 
       {/* Main */}
