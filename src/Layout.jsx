@@ -75,14 +75,14 @@ export default function Layout({ children, currentPageName }) {
     { name: 'Profile', icon: User, page: 'DashboardProfile' },
     { name: 'Services', icon: Briefcase, page: 'DashboardServices', providerOnly: true },
     { name: 'Portfolio', icon: Image, page: 'DashboardPortfolio', providerOnly: true },
-    { name: 'Reviews', icon: Settings, page: 'DashboardReviews', providerOnly: true },
-    { name: 'AI Assistant', icon: Settings, page: 'AIAssistant', providerOnly: true },
+    // { name: 'Reviews', icon: Settings, page: 'DashboardReviews', providerOnly: true },
+    // { name: 'AI Assistant', icon: Settings, page: 'AIAssistant', providerOnly: true },
     { name: 'Verification', icon: Settings, page: 'DashboardVerification', providerOnly: true },
     { name: 'Wallet', icon: Wallet, page: 'DashboardWallet' },
     { name: 'Jobs', icon: Briefcase, page: 'DashboardJobs' },
-    { name: 'Orders', icon: FileText, page: 'DashboardOrders', providerOnly: true },
+    // { name: 'Orders', icon: FileText, page: 'DashboardOrders', providerOnly: true },
     { name: 'Messages', icon: MessageSquare, page: 'Messages' },
-    { name: 'Notifications', icon: Bell, page: 'DashboardNotifications' },
+    // { name: 'Notifications', icon: Bell, page: 'DashboardNotifications' },
   ];
 
   const filteredSidebarLinks = sidebarLinks.filter(link => {
