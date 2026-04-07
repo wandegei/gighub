@@ -190,7 +190,7 @@ export default function Dashboard() {
 
         {/* Left */}
         <div>
-          <WalletCard wallet={wallet} loading={loading} />
+          {/* <WalletCard wallet={wallet} loading={loading} /> */}
 
           {profile?.user_type === "provider" && profile?.referral_code && (
             <div className="card-dark p-4 mt-4">
