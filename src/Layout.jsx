@@ -153,9 +153,9 @@ export default function Layout({ children, currentPageName }) {
           <div className="flex items-center justify-between px-4 h-16">
             <Link to={createPageUrl('Home')} className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#FF6633] to-[#E55A2B] flex items-center justify-center">
-                <span className="text-white font-bold">G</span>
+                <span className="text-white font-bold">M</span>
               </div>
-              <span className="text-lg font-bold text-white">GigHub</span>
+              <span className="text-lg font-bold text-white">Mikono Skills</span>
             </Link>
             <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="text-white">
               {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
