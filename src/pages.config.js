@@ -79,7 +79,7 @@ import AdminDashboard from './pages/AdminDashboard';
 import ContactUs from './pages/ContactUs';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import Terms from './pages/Terms';
-import AboutUs from './Pages/AboutUs';
+import AboutUs from './pages/AboutUs';
 import ServiceDetail from './pages/ServiceDetail';
 import __Layout from './Layout.jsx';
 
