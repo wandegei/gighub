@@ -209,9 +209,9 @@ export default function Layout({ children, currentPageName }) {
             {/* Logo */}
             <Link to={createPageUrl('Home')} className="flex items-center gap-2">
               <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#FF6633] to-[#E55A2B] flex items-center justify-center">
-                <span className="text-white font-bold text-xl">G</span>
+                <span className="text-white font-bold text-xl">M</span>
               </div>
-              <span className="text-xl font-bold text-white">GigHub</span>
+              <span className="text-xl font-bold text-white">Mikono Skills</span>
             </Link>
 
             {/* Desktop Nav */}
@@ -403,12 +403,12 @@ export default function Layout({ children, currentPageName }) {
             <div className="col-span-2 md:col-span-1">
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#FF6633] to-[#E55A2B] flex items-center justify-center">
-                  <span className="text-white font-bold text-xl">G</span>
+                  <span className="text-white font-bold text-xl">M</span>
                 </div>
-                <span className="text-xl font-bold text-white">GigHub</span>
+                <span className="text-xl font-bold text-white">Mikono Skills</span>
               </div>
               <p className="text-gray-500 text-sm">
-                Connect with skilled professionals for all your service needs.
+                Mikono Skills connects you to trusted local professionals for any service you need.
               </p>
             </div>
             <div>
@@ -421,20 +421,38 @@ export default function Layout({ children, currentPageName }) {
             <div>
               <h4 className="text-white font-semibold mb-4">Company</h4>
               <ul className="space-y-2">
-                <li><a href="#" className="text-gray-500 hover:text-white text-sm">About Us</a></li>
-                <li><a href="#" className="text-gray-500 hover:text-white text-sm">Contact</a></li>
+                <li>
+                <Link to={createPageUrl('AboutUs')} className="text-gray-500 hover:text-white text-sm">
+                  About Us
+                </Link>
+              </li>
+
+              <li>
+                <Link to={createPageUrl('ContactUs')} className="text-gray-500 hover:text-white text-sm">
+                  Contact
+                </Link>
+              </li>
               </ul>
             </div>
             <div>
               <h4 className="text-white font-semibold mb-4">Legal</h4>
               <ul className="space-y-2">
-                <li><a href="#" className="text-gray-500 hover:text-white text-sm">Privacy Policy</a></li>
-                <li><a href="#" className="text-gray-500 hover:text-white text-sm">Terms of Service</a></li>
+                <li>
+              <Link to={createPageUrl('PrivacyPolicy')} className="text-gray-500 hover:text-white text-sm">
+                Privacy Policy
+              </Link>
+            </li>
+
+            <li>
+              <Link to={createPageUrl('Terms')} className="text-gray-500 hover:text-white text-sm">
+                Terms of Service
+              </Link>
+            </li>
               </ul>
             </div>
           </div>
           <div className="mt-8 pt-8 border-t border-[#2A2D3E] text-center">
-            <p className="text-gray-500 text-sm">© 2026 GigHub. All rights reserved.</p>
+            <p className="text-gray-500 text-sm">© 2026 Mikono Skills. All rights reserved.</p>
           </div>
         </div>
       </footer>

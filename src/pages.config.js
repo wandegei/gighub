@@ -76,6 +76,10 @@ import ProviderProfile from './pages/ProviderProfile';
 import MyReferrals from './pages/MyReferrals';
 import Providers from './pages/Providers';
 import AdminDashboard from './pages/AdminDashboard';
+import ContactUs from './pages/ContactUs';
+import PrivacyPolicy from './pages/PrivacyPolicy';
+import Terms from './pages/Terms';
+import AboutUs from './Pages/AboutUs';
 import ServiceDetail from './pages/ServiceDetail';
 import __Layout from './Layout.jsx';
 
@@ -104,6 +108,10 @@ export const PAGES = {
     "Login": Login,
     "MapSearch": MapSearch,
     "Messages": Messages,
+    "ContactUs": ContactUs,
+    "PrivacyPolicy": PrivacyPolicy,
+    "Terms": Terms,
+    "AboutUs": AboutUs,
     "AdminDashboard": AdminDashboard,
     "PostJob": PostJob,
     "Pricing": Pricing,
