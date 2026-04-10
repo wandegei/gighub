@@ -99,9 +99,9 @@ export default function Layout({ children, currentPageName }) {
             {/* Logo */}
             <Link to={createPageUrl('Home')} className="flex items-center gap-2 px-6 mb-8">
               <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#FF6633] to-[#E55A2B] flex items-center justify-center">
-                <span className="text-white font-bold text-xl">G</span>
+                <span className="text-white font-bold text-xl">M</span>
               </div>
-              <span className="text-xl font-bold text-white">GigHub</span>
+              <span className="text-xl font-bold text-white">Mikono Skills</span>
             </Link>
 
             {/* Navigation */}

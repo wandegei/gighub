@@ -149,7 +149,7 @@ export default function CompleteProfile() {
       // Create welcome notification
       await supabase.from("notifications").insert([{
         user_email: user.email,
-        title: "Welcome to GigHub!",
+        title: "Welcome to Mikono Skills!",
         message: userType === "provider"
           ? "Your provider account is ready. Start adding your services to get hired!"
           : "Your account is ready. Browse providers and find the services you need!",
