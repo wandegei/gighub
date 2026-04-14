@@ -20,7 +20,7 @@ export default function CategoryProviders() {
   }, []);
 
   /* -------------------------------------------------- */
-  /* Detect user type then load providers */
+  /* Detect user type then load providers  providerIds */
   /* -------------------------------------------------- */
 
   const detectUserTypeAndLoad = async () => {
@@ -115,7 +115,7 @@ export default function CategoryProviders() {
         const { data, error } = await supabase
         .from("profiles")
         .select("*")
-        .in("user_id", providerIds);
+        .in("id", providerIds); // ✅ CORRECT
 
         if (error) console.error(error);
 
