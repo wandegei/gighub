@@ -107,7 +107,7 @@ export default function Login() {
         {/* Title */}
 
         <h2 className="text-2xl font-bold text-white text-center mb-6">
-          Welcome to GigHub
+          Welcome to Mikono
         </h2>
 
         {/* Tabs */}
